@@ -60,3 +60,5 @@ TODO
 - <https://simonwillison.net/2025/Dec/12/openai-skills/>
 - <https://github.com/anthropics/skills>
 - <https://github.com/anthropics/claude-cookbooks/tree/main/skills>
+- <https://cookbook.openai.com/examples/gpt-5/gpt-5-2_prompting_guide>
+- Prompt optimizer: <https://platform.openai.com/chat/edit?optimize=true>

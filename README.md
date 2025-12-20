@@ -12,15 +12,15 @@ agent-specific directories.
 
 ## Test
 
-Start codex like
+Start Codex like this:
 
     $ codex --enable skills -m gpt-5.2
 
-Then, when prompted
+Then, when prompted:
 
     > list skills
 
-Shout output something like:
+Should output something like:
 
 ```raw
 • Explored
@@ -34,11 +34,12 @@ Shout output something like:
 
 ## Use with Codex
 
-Skills are still work-in-progress it seems (as of codex 0.72.0). Run codex with
+Skills are still a work in progress (as of Codex 0.72.0). Run Codex with:
+`codex --enable skills`. For example:
 
-    $ codex --enable skills -m gpt-5.1-codex-max -s workspace-write -a on-request
+    $ codex --enable skills -m gpt-5.2-codex -s workspace-write -a on-request
 
-Tested with
+Tested with:
 
     $ codex --version
     codex-cli 0.72.0
@@ -46,6 +47,19 @@ Tested with
 ## Use with Claude Code
 
 TODO
+
+## List of skills
+
+List of skills:
+
+- english-text-editor — Suggests improvements for English language text but does
+  not rewrite the original. Use when asked to correct spelling or wording and
+  the text is English.
+- git-commit-message — Formulate a git commit message. Use this skill whenever
+  asked to create a commit message.
+- github-code-review — Conduct a thorough and in-depth code review. Use this
+  skill when conducting a code review for a PR on GitHub.
+- github-run-failure — Use to analyze failures in GitHub pipelines or jobs.
 
 ## Create your own skills
 
@@ -56,9 +70,19 @@ TODO
 
 ## Links
 
+General:
+
 - <https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview>
 - <https://simonwillison.net/2025/Dec/12/openai-skills/>
 - <https://github.com/anthropics/skills>
 - <https://github.com/anthropics/claude-cookbooks/tree/main/skills>
+
+Prompting:
+
 - <https://cookbook.openai.com/examples/gpt-5/gpt-5-2_prompting_guide>
-- Prompt optimizer: <https://platform.openai.com/chat/edit?optimize=true>
+- Prompt optimizer:
+  <https://platform.openai.com/chat/edit?models=gpt-5.2&optimize=true>
+
+Other skills:
+
+- [github.com/VoltAgent/awesome-claude-skills](https://github.com/VoltAgent/awesome-claude-skills)

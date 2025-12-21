@@ -7,7 +7,7 @@ Use with Codex or Claude Code.
 
     $ git clone git@github.com:bkircher/skills.git ~/.codex/skills
 
-… or something like this. You can also clone somewhere else and symlink from the
+… or something like this. You can also clone somewhere else and symlink to the
 agent-specific directories.
 
 ## Test

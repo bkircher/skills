@@ -61,10 +61,13 @@ List of skills:
   the text is English.
 - git-commit-message — Formulate a git commit message. Use this skill whenever
   asked to create a commit message.
-- gh-code-review — Conduct a thorough and in-depth code review. Use this
-  skill when conducting a code review for a PR on GitHub.
+- gh-address-comments — Help address review/issue comments on the open GitHub PR
+  for the current branch using gh CLI; verify gh auth first and prompt the user
+  to authenticate if not logged in.
+  [Source](https://github.com/openai/skills/tree/main/skills/.curated/gh-address-comments)
+- gh-code-review — Conduct a thorough and in-depth code review. Use this skill
+  when conducting a code review for a PR on GitHub.
 - gh-run-failure — Use to analyze failures in GitHub pipelines or jobs.
-- …
 
 ## Create your own skills
 
@@ -82,6 +85,7 @@ General:
 - <https://simonwillison.net/2025/Dec/12/openai-skills/>
 - <https://github.com/anthropics/skills>
 - <https://github.com/anthropics/claude-cookbooks/tree/main/skills>
+- <https://developers.openai.com/codex/skills/>
 
 Prompting:
 
@@ -94,3 +98,8 @@ Other skills:
 - [github.com/VoltAgent/awesome-claude-skills](https://github.com/VoltAgent/awesome-claude-skills)
 - OpenAI curated set of skills:
   [github.com/openai/skills](https://github.com/openai/skills)
+
+## License
+
+Unless otherwise noted, the license is MIT. Some skills copied from elsewhere
+have their own licenses.

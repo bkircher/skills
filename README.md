@@ -28,8 +28,12 @@ Should output something like:
 
 ─ Worked for 7s ──────────────────────────────────────────────────────────────────────────────────────────
 
-• - git-commit-message — Formulate a git commit message
-  - github-code-review — Conduct a thorough GitHub PR code review
+• Available skills in /Users/bk/.codex/skills:
+
+  - english-text-editor
+  - git-commit-message
+  - gh-code-review
+  - gh-run-failure
 ```
 
 ## Use with Codex
@@ -57,9 +61,10 @@ List of skills:
   the text is English.
 - git-commit-message — Formulate a git commit message. Use this skill whenever
   asked to create a commit message.
-- github-code-review — Conduct a thorough and in-depth code review. Use this
+- gh-code-review — Conduct a thorough and in-depth code review. Use this
   skill when conducting a code review for a PR on GitHub.
-- github-run-failure — Use to analyze failures in GitHub pipelines or jobs.
+- gh-run-failure — Use to analyze failures in GitHub pipelines or jobs.
+- …
 
 ## Create your own skills
 
@@ -72,6 +77,7 @@ List of skills:
 
 General:
 
+- <https://agentskills.io/home>
 - <https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview>
 - <https://simonwillison.net/2025/Dec/12/openai-skills/>
 - <https://github.com/anthropics/skills>
@@ -86,3 +92,5 @@ Prompting:
 Other skills:
 
 - [github.com/VoltAgent/awesome-claude-skills](https://github.com/VoltAgent/awesome-claude-skills)
+- OpenAI curated set of skills:
+  [github.com/openai/skills](https://github.com/openai/skills)

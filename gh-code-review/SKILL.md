@@ -1,5 +1,5 @@
 ---
-name: github-code-review
+name: gh-code-review
 description: Conduct a thorough and in-depth code review. Use this skill when conducting a code review for a PR on GitHub.
 ---
 

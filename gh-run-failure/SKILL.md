@@ -1,5 +1,5 @@
 ---
-name: github-run-failure
+name: gh-run-failure
 description: Use to analyze failures in GitHub pipelines or jobs.
 ---
 

@@ -23,17 +23,16 @@ Then, when prompted:
 Should output something like:
 
 ```raw
-• Explored
-  └ List ls -1
-
-─ Worked for 7s ──────────────────────────────────────────────────────────────────────────────────────────
-
-• Available skills in /Users/bk/.codex/skills:
+• Available skills:
 
   - english-text-editor
-  - git-commit-message
+  - gh-address-comments
   - gh-code-review
   - gh-run-failure
+  - git-commit-message
+  - jira-read-ticket
+  - skill-creator
+  - skill-installer
 ```
 
 ## Use with Codex
@@ -56,18 +55,14 @@ TODO
 
 List of skills:
 
-- english-text-editor — Suggests improvements for English language text but does
-  not rewrite the original. Use when asked to correct spelling or wording and
-  the text is English.
-- git-commit-message — Formulate a git commit message. Use this skill whenever
-  asked to create a commit message.
-- gh-address-comments — Help address review/issue comments on the open GitHub PR
-  for the current branch using gh CLI; verify gh auth first and prompt the user
-  to authenticate if not logged in.
-  [Source](https://github.com/openai/skills/tree/main/skills/.curated/gh-address-comments)
-- gh-code-review — Conduct a thorough and in-depth code review. Use this skill
-  when conducting a code review for a PR on GitHub.
-- gh-run-failure — Use to analyze failures in GitHub pipelines or jobs.
+| Skill | Description |
+| --- | --- |
+| english-text-editor | Suggests improvements for English language text but does not rewrite the original. Use when asked to correct spelling or wording and the text is English. |
+| git-commit-message | Formulate a git commit message. Use this skill whenever asked to create a commit message. |
+| gh-address-comments | Help address review/issue comments on the open GitHub PR for the current branch using gh CLI; verify gh auth first and prompt the user to authenticate if not logged in. [Source](https://github.com/openai/skills/tree/main/skills/.curated/gh-address-comments) |
+| gh-code-review | Conduct a thorough and in-depth code review. Use this skill when conducting a code review for a PR on GitHub. |
+| gh-run-failure | Use to analyze failures in GitHub pipelines or jobs. |
+| jira-read-ticket | Use whenever a user mentions or references a Jira ticket and you want to pull out description, comments, or more. |
 
 ## Create your own skills
 

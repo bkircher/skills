@@ -49,7 +49,32 @@ Tested with:
 
 ## Use with Claude Code
 
-TODO
+Claude Code does skills out of the box. Make sure they are installed, e.g.,
+
+    $ cd ~/.claude
+    $ ln -s $HOME/.codex/skills skills
+
+Then in Claude CLI:
+
+```raw
+> list skills
+
+⏺ Here are the available skills:
+
+  GitHub & Git:
+  - gh-address-comments - Help address review/issue comments on the open GitHub PR for the current branch
+  - gh-code-review - Conduct a thorough and in-depth code review for a PR on GitHub
+  - gh-run-failure - Analyze failures in GitHub pipelines or jobs
+  - git-commit-message - Formulate a git commit message
+
+  Text & Documentation:
+  - english-text-editor - Suggests improvements for English language text (spelling, wording)
+
+  Project Management:
+  - jira-read-ticket - Read Jira ticket description, comments, and details
+
+  You can invoke any skill using the / prefix, for example: /gh-code-review or /git-commit-message
+```
 
 ## List of skills
 

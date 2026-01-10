@@ -12,7 +12,11 @@ agent-specific directories.
 
 ## Test
 
-Start Codex like this:
+Start Codex like normal:
+
+    $ codex -m gpt-5.2-codex
+
+(before Codex version 0.80.0, pass `--enable skills` feature flag):
 
     $ codex --enable skills -m gpt-5.2
 

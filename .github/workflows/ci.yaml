@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  check-spelling:
+    runs-on: ubuntu-latest
+    name: Spell check source files
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check for spelling mistakes
+        uses: crate-ci/typos@v1.42.1

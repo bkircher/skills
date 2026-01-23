@@ -84,14 +84,16 @@ Then in Claude CLI:
 
 List of skills:
 
-| Skill | Description |
-| --- | --- |
-| english-text-editor | Suggests improvements for English language text but does not rewrite the original. Use when asked to correct spelling or wording and the text is English. |
-| git-commit-message | Formulate a git commit message. Use this skill whenever asked to create a commit message. |
+| Skill               | Description                                                                                                                                                                                                                                                       |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| english-text-editor | Suggests improvements for English language text but does not rewrite the original. Use when asked to correct spelling or wording and the text is English.                                                                                                         |
+| git-commit-message  | Formulate a git commit message. Use this skill whenever asked to create a commit message.                                                                                                                                                                         |
 | gh-address-comments | Help address review/issue comments on the open GitHub PR for the current branch using gh CLI; verify gh auth first and prompt the user to authenticate if not logged in. [Source](https://github.com/openai/skills/tree/main/skills/.curated/gh-address-comments) |
-| gh-code-review | Conduct a thorough and in-depth code review. Use this skill when conducting a code review for a PR on GitHub. |
-| gh-run-failure | Use to analyze failures in GitHub pipelines or jobs. |
-| jira-read-ticket | Use whenever a user mentions or references a Jira ticket and you want to pull out description, comments, or more. |
+| gh-code-review      | Conduct a thorough and in-depth code review. Use this skill when conducting a code review for a PR on GitHub.                                                                                                                                                     |
+| gh-run-failure      | Use to analyze failures in GitHub pipelines or jobs.                                                                                                                                                                                                              |
+| jira-read-ticket    | Use whenever a user mentions or references a Jira ticket and you want to pull out description, comments, or more.                                                                                                                                                 |
+| jira-write-ticket   | Use when asked to write a Jira ticket.                                                                                                                                                                                                                            |
+| terraform           | Use when writing Terraform. [Source](https://github.com/antonbabenko/terraform-skill)                                                                                                                                                                             |
 
 ## Create your own skills
 

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:developer.atlassian.com)",
+      "WebFetch(domain:community.developer.atlassian.com)",
+      "WebFetch(domain:support.atlassian.com)"
+    ]
+  }
+}

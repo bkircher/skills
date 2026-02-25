@@ -136,6 +136,7 @@ Prompting:
 
 Other skills:
 
+- [The Agent Skills Directory](https://skills.sh/)
 - [github.com/VoltAgent/awesome-claude-skills](https://github.com/VoltAgent/awesome-claude-skills)
 - OpenAI curated set of skills:
   [github.com/openai/skills](https://github.com/openai/skills)

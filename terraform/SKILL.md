@@ -1,6 +1,6 @@
 ---
 name: terraform
-description: Use when writing Terraform.
+description: "Generate Terraform modules, configure providers, define resources, manage state, and write infrastructure-as-code patterns. Use when creating, modifying, or reviewing Terraform configurations, HCL files (.tf, .tfvars), infrastructure as code (IaC), OpenTofu configs, cloud provisioning, running terraform plan/apply/destroy, writing reusable modules, setting up remote backends, or structuring multi-environment deployments."
 ---
 
 # Modern Terraform (v1.11+) Best Practices
@@ -9,8 +9,9 @@ description: Use when writing Terraform.
 - Set `nullable = false` in variables to prevent null assignments and reduce misconfiguration.
 - Use `moved` blocks to refactor resources/modules efficiently, avoiding destroy/recreate cycles.
 - Apply `optional()` with defaults for flexible object field handling.
-- Use Terraform's native test framework to improve module reliability.
+- Use Terraform's native test framework (`terraform test`) to improve module reliability.
 - Run unit tests with mock providers to avoid impacting real infrastructure.
+- Place test files in a `tests/` directory with the `.tftest.hcl` extension.
 - Apply provider-defined functions for resource configuration as needed.
 - Validate relationships between variables for input correctness.
 - Use write-only arguments for secrets, when supported, to avoid persisting them in state files.
@@ -108,6 +109,45 @@ resource "aws_subnet" "private" {
 resource "aws_subnet" "private" {
   count = length(var.availability_zones)
   availability_zone = var.availability_zones[count.index]
+}
+```
+
+# Testing Workflow
+
+Run tests with `terraform test` from the module root. Use `-filter` to target specific test files:
+
+```shell
+terraform test                          # run all tests in tests/
+terraform test -filter=tests/main.tftest.hcl  # run a single test file
+terraform test -verbose                 # show detailed plan/apply output
+```
+
+Example test file (`tests/main.tftest.hcl`) with a mock provider:
+
+```hcl
+mock_provider "aws" {}
+
+variables {
+  vpc_cidr_block = "10.0.0.0/16"
+  environment    = "test"
+}
+
+run "creates_vpc_with_correct_cidr" {
+  command = plan
+
+  assert {
+    condition     = aws_vpc.this.cidr_block == "10.0.0.0/16"
+    error_message = "VPC CIDR block did not match expected value"
+  }
+}
+
+run "tags_include_environment" {
+  command = plan
+
+  assert {
+    condition     = aws_vpc.this.tags["Environment"] == "test"
+    error_message = "Environment tag was not set correctly"
+  }
 }
 ```
 

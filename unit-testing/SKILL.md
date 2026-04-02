@@ -1,15 +1,15 @@
 ---
 name: unit-testing
-description: Use when writing or updating unit tests (in any language).
+description: "Generate test scaffolding, write assertions, create mocks and stubs, and update existing test suites for any language. Use when writing or updating unit tests, test cases, specs, test coverage, TDD workflows, or working with testing frameworks like pytest, Jest, JUnit, or Go testing."
 ---
 
-## Purpose
+## Workflow
 
-Create maintainable, readable, deterministic, and refactor-resilient unit tests in any programming language.
-
-## Role
-
-You are an expert in software quality, unit testing, and TDD. Prioritize correctness, clarity, and maintainability over cleverness. Avoid unnecessary testing of implementation details.
+1. **Identify** the public behavior to test — read the function/module under test, note its inputs, outputs, and side effects.
+2. **Name the test** descriptively (e.g., `test_returns_empty_list_when_no_items_match`).
+3. **Write using AAA** — Arrange inputs, Act by calling the function, Assert expected outputs.
+4. **Run the suite** — execute with the project's test command (`pytest .`, `npm test`, `go test ./...`) and verify all pass.
+5. **Check coverage gaps** — look for untested error paths, boundary conditions, and edge cases.
 
 ## Non-Negotiable Rules
 
@@ -47,16 +47,42 @@ You are an expert in software quality, unit testing, and TDD. Prioritize correct
    - Use explicit literals in assertions for clarity.
    - Magic numbers/strings are allowed if they improve readability.
 
+## Examples
+
+**Python (pytest):**
+
+```python
+def test_discount_applied_for_bulk_order():
+    # Arrange
+    cart = Cart(items=[Item("widget", qty=100, price=5.00)])
+
+    # Act
+    total = cart.calculate_total()
+
+    # Assert
+    assert total == 450.00  # 10% bulk discount applied
+```
+
+**JavaScript (Jest):**
+
+```javascript
+test("returns filtered users matching the query", () => {
+  // Arrange
+  const users = [{ name: "Alice" }, { name: "Bob" }, { name: "Alana" }];
+
+  // Act
+  const result = filterUsers(users, "Al");
+
+  // Assert
+  expect(result).toEqual([{ name: "Alice" }, { name: "Alana" }]);
+});
+```
+
 ## General Advice
 
-- Inject clocks, randomness, and I/O boundaries as dependencies. Avoid reliance on real time or external systems. Use explicit seeding and deterministic sources for randomness testing.
-- Assert only outputs, not domain logic within tests.
-- Ensure the full unit test suite runs with a single, simple command (e.g., `./test`, `pytest .`, `npm test`). Separate integration or performance suites from unit tests.
-- Prefer built-in fixtures/utilities from test libraries.
+- Inject clocks, randomness, and I/O boundaries as dependencies. Use explicit seeding for deterministic randomness testing.
+- Ensure the full test suite runs with a single command. Separate integration or performance suites from unit tests.
 - Code under test must not detect it is being tested; tests should not depend on debug/test hooks.
-- For filter logic, classify representative input sets for inclusion/exclusion testing; do not use single test cases for filters.
-- Use descriptive names reflecting test intent.
-- Each test should verify a single logical behavior. Multiple assertions are fine if for one behavior; otherwise, split tests.
-- Cover error cases, including null/missing inputs, invalid formats, boundaries, empty collections, negatives, exceptions, and failures (with mocks).
-- Unit tests must complete in seconds and avoid dependencies on time or external state; treat flaky tests as bugs.
-- Never modify the code under test just to adapt to new or changed tests.
+- For filter logic, classify representative input sets for inclusion/exclusion testing.
+- Cover error cases: null/missing inputs, invalid formats, boundaries, empty collections, negatives, exceptions, and failures (with mocks).
+- Treat flaky tests as bugs. Unit tests must complete in seconds.

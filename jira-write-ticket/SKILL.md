@@ -1,46 +1,27 @@
 ---
 name: jira-write-ticket
-description: Use when asked to write a Jira ticket.
+description: "Write a Jira ticket with a structured description, acceptance criteria, GitHub permalinks, and linked ticket summaries. Use when asked to write, draft, or create a Jira ticket, story, bug, task, user story, issue, or backlog item."
 ---
 
-Generate a Jira ticket description and acceptance criteria using simple Markdown. Strictly follow this order:
+Generate a Jira ticket in Markdown by following these steps in order:
 
-- If information is missing or unclear, state this and add numbered, targeted clarification questions.
-- Convert any code locations mentioned to GitHub permalinks (e.g., https://github.com/<repo>/blob/<commit>/<file>#L<line>) when possible. If not possible, note this and request more details.
-- Find and scan the necessary code to gain more context.
-- For referenced Jira tickets, use the jira-read-ticket skill to fetch and summarize details, and include them in a `### Links` section.
+1. **Gather context** — If information is missing or unclear, state what is missing and ask numbered, targeted clarification questions before drafting.
+2. **Resolve code references** — Convert any mentioned code locations to GitHub permalinks (`https://github.com/<repo>/blob/<commit>/<file>#L<line>`). If a permalink cannot be constructed, note this and request the missing details (repo, branch, file, or line).
+3. **Scan related code** — Read relevant source files to understand the change area and inform the description.
+4. **Fetch linked tickets** — For every referenced Jira ticket, use the `jira-read-ticket` skill to retrieve and summarize it. Include each summary in the Links section.
+5. **Draft the ticket** — Once all questions are resolved, produce the ticket using the structure below.
 
-Once all question have been clarified follow this structure:
+## Ticket structure
 
-## Description
-- Begin with a concise summary based on the provided details.
+Always output these sections in this exact order. Present every section even when empty — add clarification questions as numbered items where information is lacking.
 
-### Links (if applicable)
-- List all referenced Jira tickets with summaries where available.
-- Explicitly note missing or unfetched references.
-
-## Acceptance Criteria
-- Present concise, bulleted acceptance criteria. Organize as directed by the user or logically.
-
-**Section Order:** Always use this order: Description, Links (if any), Acceptance Criteria.
-- Present every section, even if empty; include guidance or clarification questions as needed.
-- Number clarification questions.
-
-## Output Format
-Use only the following Markdown template, maintaining strict section order:
-
-```markdown
-## Description
-<Concise ticket summary, or notes/questions if info is missing/unclear>
+### Description
+Write a concise summary of the work to be done based on the provided details. Include GitHub permalinks for any referenced code locations.
 
 ### Links (if applicable)
-- <Linked ticket 1>
+- List each referenced Jira ticket with a one-line summary (fetched via `jira-read-ticket`).
+- Explicitly note any references that could not be fetched.
 
-## Acceptance Criteria
-- <Acceptance criterion 1>
-- <Acceptance criterion 2>
-- ...
-```
-
-- Only use this template. For sections lacking information, call this out and supply numbered clarification questions.
-- State and ask if code locations cannot be converted to GitHub permalinks.
+### Acceptance Criteria
+- Present concise, bulleted acceptance criteria.
+- Organize criteria as directed by the user, or group them logically (e.g., functional, edge cases, non-functional).

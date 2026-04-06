@@ -1,0 +1,4 @@
+# .typos.toml (https://github.com/crate-ci/typos)
+
+[default.extend-words]
+BRIN = "BRIN"

@@ -84,33 +84,20 @@ Then in Claude CLI:
 
 List of skills:
 
-┌─────────────────────┬───────────────────────────────────────────────────────────----------------------------------------------------------------------------------------──────────┐
-│ Skill │ Description │
-├─────────────────────┼───────────────────────────────────────────────────────────----------------------------------------------------------------------------------------──────────┤
-│ english-text-editor │ Suggests improvements for English language text (spelling, wording) │
-├─────────────────────┼───────────────────────────────────────────────────────────----------------------------------------------------------------------------------------──────────┤
-│ gh-address-comments │ Address review/issue comments on open GitHub PR for current branch [Source](https://github.com/openai/skills/tree/main/skills/.curated/gh-address-comments) │
-├─────────────────────┼───────────────────────────────────────────────────────────----------------------------------------------------------------------------------------──────────┤
-│ gh-code-review │ Conduct thorough code review for a GitHub PR │
-├─────────────────────┼───────────────────────────────────────────────────────────----------------------------------------------------------------------------------------──────────┤
-│ gh-run-failure │ Analyze failures in GitHub pipelines or jobs │
-├─────────────────────┼───────────────────────────────────────────────────────────----------------------------------------------------------------------------------------──────────┤
-│ git-commit-message │ Formulate a git commit message │
-├─────────────────────┼───────────────────────────────────────────────────────────----------------------------------------------------------------------------------------──────────┤
-│ confluence-read │ Search Confluence pages and fetch page content │
-├─────────────────────┼───────────────────────────────────────────────────────────----------------------------------------------------------------------------------------──────────┤
-│ jira-read-ticket │ Pull description, comments, or more from a Jira ticket │
-├─────────────────────┼───────────────────────────────────────────────────────────----------------------------------------------------------------------------------------──────────┤
-│ jira-write-ticket │ Write a Jira ticket │
-├─────────────────────┼───────────────────────────────────────────────────────────----------------------------------------------------------------------------------------──────────┤
-│ postgresql-table-design │ Design and optimize PostgreSQL schemas │
-├─────────────────────┼───────────────────────────────────────────────────────────----------------------------------------------------------------------------------------──────────┤
-│ terraform │ Help when writing Terraform or OpenTofu [Source](https://github.com/antonbabenko/terraform-skill) │
-├─────────────────────┼───────────────────────────────────────────────────────────----------------------------------------------------------------------------------------──────────┤
-│ unit-testing │ Help when writing or updating unit tests │
-├─────────────────────┼───────────────────────────────────────────────────────────----------------------------------------------------------------------------------------──────────┤
-│ playwright-cli │ Automate browser interactions, test web pages, and work with Playwright tests (added 2026-04-06, Apache-2.0) │
-└─────────────────────┴───────────────────────────────────────────────────────────----------------------------------------------------------------------------------------──────────┘
+| Skill                   | Description                                                                                                                                                                                        |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| english-text-editor     | Suggests improvements for English language text (spelling, wording)                                                                                                                                |
+| gh-address-comments     | Address review/issue comments on open GitHub PR for current branch [Source](https://github.com/openai/skills/tree/main/skills/.curated/gh-address-comments)                                        |
+| gh-code-review          | Conduct thorough code review for a GitHub PR                                                                                                                                                       |
+| gh-run-failure          | Analyze failures in GitHub pipelines or jobs                                                                                                                                                       |
+| git-commit-message      | Formulate a git commit message                                                                                                                                                                     |
+| confluence-read         | Search Confluence pages and fetch page content                                                                                                                                                     |
+| jira-read-ticket        | Pull description, comments, or more from a Jira ticket                                                                                                                                             |
+| jira-write-ticket       | Write a Jira ticket                                                                                                                                                                                |
+| playwright-cli          | Automate browser interactions, test web pages, and work with Playwright tests [Source](https://github.com/microsoft/playwright-cli/tree/main/skills/playwright-cli) (added 2026-04-06, Apache-2.0) |
+| postgresql-table-design | Design and optimize PostgreSQL schemas                                                                                                                                                             |
+| terraform               | Help when writing Terraform [Source](https://github.com/antonbabenko/terraform-skill)                                                                                                              |
+| unit-testing            | Help when writing or updating unit tests                                                                                                                                                           |
 
 ## Create your own skills
 

@@ -1,6 +1,6 @@
 ---
 name: gh-code-review
-description: Conduct a thorough and in-depth code review. Use this skill when conducting a code review for a PR on GitHub.
+description: Conduct a thorough code review for a GitHub pull request. Use this skill when reviewing a PR on GitHub.
 ---
 
 You are conducting a fast, high-signal code review for a pull request on GitHub.
@@ -11,7 +11,7 @@ You are conducting a fast, high-signal code review for a pull request on GitHub.
 - Do not paste large code. Use short, surgical quotes only when essential.
 - Keep output terse and scannable. Prefer bullet points, no fluff.
 - Never speculate beyond the diff. If the PR text claims something not in the diff, call it out.
-- Use `--help` flag on any sub-command to figure out how to use `gh` tool correctly.
+- Do not run tests locally. The CI pipeline takes care of this.
 </constraints>
 
 <shell-setup>
@@ -28,7 +28,7 @@ List PRs:
 gh pr list --json number,title,url,updatedAt
 </command>
 
-View minimal PR metadata (avoid heavy fields by default):
+View PR metadata (use only when needed):
 
 <command>
 gh pr view $number \
@@ -54,7 +54,7 @@ gh api repos/{owner}/{repo}/pulls/$number/files --paginate \
   | jq -r --arg file "$filename" '.[] | select(.filename==$file) | .patch'
 </command>
 
-Checkout the branch (only if absolutely necessary, e.g., to compare merges):
+Check out the branch (only if absolutely necessary, e.g., to compare merges):
 
 <command>
 gh pr checkout $number
@@ -62,8 +62,8 @@ gh pr checkout $number
 </tool-use>
 
 <cleanup_rules>
-When writing to `/tmp`, always manage temporary files through an agent-specific tmpdir for easier tracking and cleanup. For script automation:
-- Create a agent-unique temp dir: `TEMP_DIR=$(mktemp -d "/tmp/codex-$(date +%F)-XXXXXX")`. Use codex-, claude-, gemini- or whatever is applicable here
+When writing to `/tmp`, always manage temporary files through an agent-specific temp dir for easier tracking and cleanup. For script automation:
+- Create an agent-specific temp dir, for example: `TEMP_DIR=$(mktemp -d "/tmp/codex-$(date +%F)-XXXXXX")`. Use `codex-`, `claude-`, `gemini-`, or whatever prefix applies here.
 - *Immediately* set a trap: `trap 'rm -rf "$TEMP_DIR"' EXIT`
 - Store all agent/skill temp files inside `$TEMP_DIR`; do not mix with others
 - Avoid redundant checks: rely on the trap for cleanup. Never leave temp dirs/files behind
@@ -102,7 +102,7 @@ Where obvious, include a GitHub suggestion block:
 
 ### Tests & Docs
 
-- Do tests exist or change where logic changes? If missing, name the files to
+- Where logic changes, do tests exist or need updates? If missing, name the files to
   add.
 - Note required doc updates (README, API docs, migration notes).
 
@@ -114,7 +114,7 @@ Where obvious, include a GitHub suggestion block:
 
 ### Decision
 
-One of: **approve** | **comment** | **request-changes** One sentence rationale.
+One of: **approve** | **comment** | **request-changes**. Include a one-sentence rationale.
 </output-format>
 
 <review-checklist>
@@ -164,9 +164,9 @@ gh api repos/{owner}/{repo}/pulls/42/files --paginate | jq -r --arg file "src/ap
 </examples>
 
 <notes>
-`gh pr diff $number` does not have a `--path` parameter and does not allow to show diff selectively for single files.
+`gh pr diff $number` does not have a `--path` parameter and does not support showing diffs selectively for single files.
 
-This does not work:
+These do not work:
 
 <wrong>
 gh pr diff 445 -- src/foo/bar.c
@@ -192,4 +192,4 @@ gh pr diff
 gh pr view
 </commands>
 
-For those commands, filesystem and network access should be granted without explicit approval. When running in a sandbox, bundle as many commands as possible together to make the user approve as little as possible.
+For those commands, filesystem and network access should be granted without explicit approval. When running in a sandbox, bundle as many commands as possible together to minimize approval prompts.

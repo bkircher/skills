@@ -1,12 +1,15 @@
 ---
 name: gh-code-review
-description: Conduct a thorough code review for a GitHub pull request. Use this skill when reviewing a PR on GitHub.
+description: Conduct a thorough code review for a GitHub pull request.
 ---
 
 You are conducting a fast, high-signal code review for a pull request on GitHub.
 
 <mandatory-preflight>
-Before reviewing any PR, verify `gh` can access GitHub and the target PR. Set `PR_NUMBER` from the user request, then run:
+Before reviewing any PR, verify `gh` can access GitHub and the target PR. Set
+`PR_NUMBER` from the user request. If no PR number is provided, use `gh pr list`
+to identify candidates and ask the user to choose one. Once `PR_NUMBER` is
+known, run:
 
 <command>
 set -euo pipefail
@@ -17,21 +20,24 @@ gh pr view "$PR_NUMBER" --json number,title,url,baseRefName,headRefName,headRefO
 gh pr diff "$PR_NUMBER" --name-only >/dev/null
 </command>
 
-If any command fails because of auth, network, sandboxing, missing credentials, or permissions, stop immediately. Do not continue with local git refs, cached branches, previously fetched diffs, or SSH fetch fallbacks.
+If any command fails because of authentication, network, sandboxing, missing
+credentials, or permissions, stop immediately. Do not continue with local git
+refs, cached branches, previously fetched diffs, or SSH fetch fallbacks.
 
 Return only:
 
 ### Error
 
-Cannot review PR `$PR_NUMBER` because GitHub CLI access failed.
+Cannot review PR `$PR_NUMBER` because the GitHub CLI preflight failed.
 
 - Failing command: `<command>`
 - Error: `<stderr summary>`
-- Required action: re-run with `gh` authenticated and sandbox permissions allowing GitHub network access and access to GitHub CLI credentials.
+- Required action: re-run with `gh` authenticated and sandbox permissions that
+  allow GitHub network access and access to GitHub CLI credentials.
 </mandatory-preflight>
 
 <constraints>
-- Tools: use only `gh`, `git`, and `jq`. Do not assume `gh` access works until the mandatory preflight passes.
+- External CLIs: use only `gh`, `git`, and `jq`; shell built-ins are allowed. Do not assume `gh` access works until the mandatory preflight passes.
 - Network budget: minimize API calls. Prefer `gh pr diff` + minimal `gh pr view`.
 - Do not paste large code. Use short, surgical quotes only when essential.
 - Keep output terse and scannable. Prefer bullet points, no fluff.
@@ -43,64 +49,69 @@ Cannot review PR `$PR_NUMBER` because GitHub CLI access failed.
 - Do not run tests locally. The CI pipeline takes care of this.
 </constraints>
 
-<shell-setup>
+## Shell Setup
+
 Export safe defaults (non-interactive):
+
 - `export GH_PAGER=cat GIT_PAGER=cat`
 - `set -euo pipefail`
-</shell-setup>
 
-<tool-use>
+## Tool Use
+
 List PRs:
 
-<command>
+```sh
 gh pr list --json number,title,url,updatedAt
-</command>
+```
 
 View PR metadata (use only when needed):
 
-<command>
-gh pr view $number \
+```sh
+gh pr view "$PR_NUMBER" \
   --json number,title,url,updatedAt,comments,reviews,commits,isDraft,labels,baseRefName,headRefName,author,changedFiles,files,state,reviewDecision,body
-</command>
+```
 
 Obtain a unified diff (source of truth for summary):
 
-<command>
-gh pr diff $number
-</command>
+```sh
+gh pr diff "$PR_NUMBER"
+```
 
 List changed files quickly:
 
-<command>
-gh pr diff $number --name-only
-</command>
+```sh
+gh pr diff "$PR_NUMBER" --name-only
+```
 
 Get patch for a specific file if needed (no checkout):
 
-<command>
-gh api repos/{owner}/{repo}/pulls/$number/files --paginate \
+```sh
+gh api repos/{owner}/{repo}/pulls/$PR_NUMBER/files --paginate \
   | jq -r --arg file "$filename" '.[] | select(.filename==$file) | .patch'
-</command>
+```
 
 Fetch full file context from the PR head SHA (preferred over local reads):
 
-<command>
-headRefOid=$(gh pr view $number --json headRefOid --jq .headRefOid)
+```sh
+headRefOid=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
 gh api -H "Accept: application/vnd.github.raw" \
   "repos/{owner}/{repo}/contents/$filename?ref=$headRefOid"
-</command>
+```
 
-Check out the branch (only if absolutely necessary, e.g., to compare merges):
+Check out the branch only after mandatory preflight succeeds and only if
+absolutely necessary. Before reading local files, verify `git rev-parse HEAD`
+equals `headRefOid` and `git status --short` is clean:
 
-<command>
-gh pr checkout $number
-</command>
-</tool-use>
+```sh
+gh pr checkout "$PR_NUMBER"
+```
 
 <output-format>
-If the mandatory preflight fails, ignore the normal review sections and return only the `### Error` block described above.
+If the mandatory preflight fails, ignore the normal review sections and return
+only the `### Error` block described above.
 
-Return **exactly** these sections in order, using concise Markdown:
+Return **exactly** these sections in order, using concise Markdown. Use
+`- None.` for required sections with no items:
 
 ### Summary (from diff only)
 
@@ -132,8 +143,8 @@ Where obvious, include a GitHub suggestion block:
 
 ### Tests & Docs
 
-- Where logic changes, do tests exist or need updates? If missing, name the files to
-  add.
+- For logic changes, do tests exist or need updates? If missing, name the files
+  to add.
 - Note required doc updates (README, API docs, migration notes).
 
 ### Risk & Scope
@@ -144,85 +155,100 @@ Where obvious, include a GitHub suggestion block:
 
 ### Decision
 
-One of: **approve** | **comment** | **request-changes**. Include a one-sentence rationale.
+One of: **approve** | **comment** | **request-changes**. Include a one-sentence
+rationale.
 
-Before choosing **request-changes** for suspected build/type/CI failures, check `gh pr checks $number` if available. If checks are unavailable and the diff does not prove breakage, prefer **comment** and state what is unverified.
+Before choosing **request-changes** for suspected build/type/CI failures, check
+`gh pr checks "$PR_NUMBER"` if available. If that command fails due to
+authentication, network access, or sandboxing, use the mandatory error format.
+If checks are unavailable and the diff does not prove breakage, prefer
+**comment** and state what is unverified.
 </output-format>
 
-<review-checklist>
+## Review Checklist
+
 Trigger items only when applicable, based on the diff:
+
 - Correctness: off-by-one, null/None checks, error handling, edge cases.
-- Security: injection, XSS/CSRF, SSRF, path traversal, secrets/keys/logging of PII.
-- Performance: N+1 queries, unnecessary loops, large allocations, sync I/O in hot paths.
+- Security: injection, XSS/CSRF, SSRF, path traversal, secrets/keys/logging of
+  PII.
+- Performance: N+1 queries, unnecessary loops, large allocations, sync I/O in
+  hot paths.
 - Concurrency: data races, locks, async/await misuse, shared state.
 - API contracts: signature/behavior changes, deprecations, versioning.
 - Dependencies: new packages, version bumps, license/typosquat risk, pinning.
 - Observability: log levels, metrics, structured logs, dead exceptions.
 - Tests: coverage for branches & regressions; flaky patterns.
 - Docs: updated examples, changelog, migration notes.
-</review-checklist>
 
-<style>
+## Style
+
 - Be brief. Prioritize high-severity items. Prefer bullets over paragraphs.
 - Anchor every non-nit finding with `path:line` if possible.
 - Avoid restating code. Focus on impact, rationale, and minimal fix.
-</style>
 
-<examples>
+## Examples
+
 List PRs (numbers you can review):
 
-<example>
+```sh
 gh pr list --json number,title,url,updatedAt
-</example>
+```
 
-Show all PR #42 details (when needed):
+Show PR details (when needed):
 
-<example>
-gh pr view 42 --json title,url,updatedAt,author,baseRefName,headRefName,isDraft,labels,reviewDecision,body | jq
-</example>
+```sh
+gh pr view "$PR_NUMBER" \
+    --json title,url,updatedAt,author,baseRefName,headRefName,isDraft,labels,reviewDecision,body \
+    | jq
+```
 
 Get diff and file names:
 
-<example>
-gh pr diff 42
-gh pr diff 42 --name-only
-</example>
+```sh
+gh pr diff "$PR_NUMBER"
+gh pr diff "$PR_NUMBER" --name-only
+```
 
 Get a specific file's patch safely:
 
-<example>
-gh api repos/{owner}/{repo}/pulls/42/files --paginate | jq -r --arg file "src/app.js" '.[] | select(.filename==$file) | .patch'
-</example>
-</examples>
+```sh
+gh api repos/{owner}/{repo}/pulls/$PR_NUMBER/files --paginate \
+    | jq -r --arg file "src/app.js" '.[] | select(.filename==$file) | .patch'
+```
 
-<notes>
-`gh pr diff $number` does not have a `--path` parameter and does not support showing diffs selectively for single files.
+## Notes
+
+`gh pr diff "$PR_NUMBER"` does not have a `--path` parameter and does not
+support showing diffs selectively for single files.
 
 These do not work:
 
-<wrong>
+```text
 gh pr diff 445 -- src/foo/bar.c
 └ accepts at most 1 arg(s), received 2
-</wrong>
+```
 
-<wrong>
+```text
 gh pr diff 445 --path src/foo/bar.c
 └ unknown flag: --path
-</wrong>
+```
 
 Instead, use the GitHub pull-files API for per-file patches or fetch full file
 context from the PR `headRefOid` via the contents API. Only use local `git`
 files after verifying `git rev-parse HEAD` equals the PR `headRefOid` and
 `git status --short` is clean.
-</notes>
 
-### Approvals
+## Approvals
 
-Do not ask the user for approvals when running "read-only" `gh` or `git` commands such as
+Do not ask the user for approvals when running "read-only" `gh` or `git`
+commands such as
 
-<commands>
+```sh
 gh pr diff
 gh pr view
-</commands>
+```
 
-For those commands, filesystem and network access should be granted without explicit approval. When running in a sandbox, bundle as many commands as possible together to minimize approval prompts.
+For those commands, do not request approval. If sandboxing blocks them, follow
+the mandatory preflight failure path. When running in a sandbox, bundle as many
+commands as possible together to minimize approval prompts.

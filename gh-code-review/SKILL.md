@@ -13,7 +13,7 @@ set -euo pipefail
 export GH_PAGER=cat GIT_PAGER=cat
 gh auth status -h github.com
 gh api user --jq .login
-gh pr view "$PR_NUMBER" --json number,title,url,baseRefName,headRefName
+gh pr view "$PR_NUMBER" --json number,title,url,baseRefName,headRefName,headRefOid
 gh pr diff "$PR_NUMBER" --name-only >/dev/null
 </command>
 
@@ -37,6 +37,8 @@ Cannot review PR `$PR_NUMBER` because GitHub CLI access failed.
 - Keep output terse and scannable. Prefer bullet points, no fluff.
 - Never speculate beyond the diff. If the PR text claims something not in the diff, call it out.
 - `gh pr diff` is the required source of truth. Do not review from local cached refs unless the mandatory preflight succeeds first.
+- Do not read local files unless `git rev-parse HEAD` equals the PR `headRefOid` and `git status --short` is clean.
+- Prefer fetching full file context via the GitHub API at the PR `headRefOid` instead of reading local files.
 - If `gh` auth or network access fails at any point, abort with the `### Error` format. Never silently fall back to `git diff origin/...`.
 - Do not run tests locally. The CI pipeline takes care of this.
 </constraints>
@@ -45,7 +47,6 @@ Cannot review PR `$PR_NUMBER` because GitHub CLI access failed.
 Export safe defaults (non-interactive):
 - `export GH_PAGER=cat GIT_PAGER=cat`
 - `set -euo pipefail`
-- `git remote update` (to ensure local comparison is possible if needed)
 </shell-setup>
 
 <tool-use>
@@ -79,6 +80,14 @@ Get patch for a specific file if needed (no checkout):
 <command>
 gh api repos/{owner}/{repo}/pulls/$number/files --paginate \
   | jq -r --arg file "$filename" '.[] | select(.filename==$file) | .patch'
+</command>
+
+Fetch full file context from the PR head SHA (preferred over local reads):
+
+<command>
+headRefOid=$(gh pr view $number --json headRefOid --jq .headRefOid)
+gh api -H "Accept: application/vnd.github.raw" \
+  "repos/{owner}/{repo}/contents/$filename?ref=$headRefOid"
 </command>
 
 Check out the branch (only if absolutely necessary, e.g., to compare merges):
@@ -136,6 +145,8 @@ Where obvious, include a GitHub suggestion block:
 ### Decision
 
 One of: **approve** | **comment** | **request-changes**. Include a one-sentence rationale.
+
+Before choosing **request-changes** for suspected build/type/CI failures, check `gh pr checks $number` if available. If checks are unavailable and the diff does not prove breakage, prefer **comment** and state what is unverified.
 </output-format>
 
 <review-checklist>
@@ -199,8 +210,10 @@ gh pr diff 445 --path src/foo/bar.c
 └ unknown flag: --path
 </wrong>
 
-Instead, use `git` to checkout the PR branch and use `git diff` to compare
-changes.
+Instead, use the GitHub pull-files API for per-file patches or fetch full file
+context from the PR `headRefOid` via the contents API. Only use local `git`
+files after verifying `git rev-parse HEAD` equals the PR `headRefOid` and
+`git status --short` is clean.
 </notes>
 
 ### Approvals
@@ -208,7 +221,6 @@ changes.
 Do not ask the user for approvals when running "read-only" `gh` or `git` commands such as
 
 <commands>
-git remote update
 gh pr diff
 gh pr view
 </commands>

@@ -5,12 +5,39 @@ description: Conduct a thorough code review for a GitHub pull request. Use this 
 
 You are conducting a fast, high-signal code review for a pull request on GitHub.
 
+<mandatory-preflight>
+Before reviewing any PR, verify `gh` can access GitHub and the target PR. Set `PR_NUMBER` from the user request, then run:
+
+<command>
+set -euo pipefail
+export GH_PAGER=cat GIT_PAGER=cat
+gh auth status -h github.com
+gh api user --jq .login
+gh pr view "$PR_NUMBER" --json number,title,url,baseRefName,headRefName
+gh pr diff "$PR_NUMBER" --name-only >/dev/null
+</command>
+
+If any command fails because of auth, network, sandboxing, missing credentials, or permissions, stop immediately. Do not continue with local git refs, cached branches, previously fetched diffs, or SSH fetch fallbacks.
+
+Return only:
+
+### Error
+
+Cannot review PR `$PR_NUMBER` because GitHub CLI access failed.
+
+- Failing command: `<command>`
+- Error: `<stderr summary>`
+- Required action: re-run with `gh` authenticated and sandbox permissions allowing GitHub network access and access to GitHub CLI credentials.
+</mandatory-preflight>
+
 <constraints>
-- Tools: use only `gh`, `git`, and `jq`. Assume they are installed and configured.
+- Tools: use only `gh`, `git`, and `jq`. Do not assume `gh` access works until the mandatory preflight passes.
 - Network budget: minimize API calls. Prefer `gh pr diff` + minimal `gh pr view`.
 - Do not paste large code. Use short, surgical quotes only when essential.
 - Keep output terse and scannable. Prefer bullet points, no fluff.
 - Never speculate beyond the diff. If the PR text claims something not in the diff, call it out.
+- `gh pr diff` is the required source of truth. Do not review from local cached refs unless the mandatory preflight succeeds first.
+- If `gh` auth or network access fails at any point, abort with the `### Error` format. Never silently fall back to `git diff origin/...`.
 - Do not run tests locally. The CI pipeline takes care of this.
 </constraints>
 
@@ -70,6 +97,8 @@ When writing to `/tmp`, always manage temporary files through an agent-specific 
 </cleanup_rules>
 
 <output-format>
+If the mandatory preflight fails, ignore the normal review sections and return only the `### Error` block described above.
+
 Return **exactly** these sections in order, using concise Markdown:
 
 ### Summary (from diff only)

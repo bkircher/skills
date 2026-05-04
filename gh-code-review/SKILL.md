@@ -88,14 +88,6 @@ gh pr checkout $number
 </command>
 </tool-use>
 
-<cleanup_rules>
-When writing to `/tmp`, always manage temporary files through an agent-specific temp dir for easier tracking and cleanup. For script automation:
-- Create an agent-specific temp dir, for example: `TEMP_DIR=$(mktemp -d "/tmp/codex-$(date +%F)-XXXXXX")`. Use `codex-`, `claude-`, `gemini-`, or whatever prefix applies here.
-- *Immediately* set a trap: `trap 'rm -rf "$TEMP_DIR"' EXIT`
-- Store all agent/skill temp files inside `$TEMP_DIR`; do not mix with others
-- Avoid redundant checks: rely on the trap for cleanup. Never leave temp dirs/files behind
-</cleanup_rules>
-
 <output-format>
 If the mandatory preflight fails, ignore the normal review sections and return only the `### Error` block described above.
 

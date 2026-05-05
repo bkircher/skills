@@ -33,7 +33,7 @@ Cannot review PR `$PR_NUMBER` because the GitHub CLI preflight failed.
 - Failing command: `<command>`
 - Error: `<stderr summary>`
 - Required action: re-run with `gh` authenticated and sandbox permissions that
-  allow GitHub network access and access to GitHub CLI credentials.
+  allow network access to GitHub and GitHub CLI credentials.
 </mandatory-preflight>
 
 <constraints>
@@ -42,21 +42,27 @@ Cannot review PR `$PR_NUMBER` because the GitHub CLI preflight failed.
 - Do not paste large code. Use short, surgical quotes only when essential.
 - Keep output terse and scannable. Prefer bullet points, no fluff.
 - Never speculate beyond the diff. If the PR text claims something not in the diff, call it out.
-- `gh pr diff` is the required source of truth. Do not review from local cached refs unless the mandatory preflight succeeds first.
+- `gh pr diff` / PR files API are the required sources of truth. Do not review from local cached refs unless the mandatory preflight succeeds first.
+- Cache `headRefOid` once after preflight and reuse it. Do not repeatedly call `gh pr view --json headRefOid`.
+- Do not read output logs under $TMPDIR, `/tmp`, etc. If output truncates, rerun narrower commands.
+- For large PRs, avoid printing the full diff; use changed-file lists, per-file patches, and targeted raw file context.
 - Do not read local files unless `git rev-parse HEAD` equals the PR `headRefOid` and `git status --short` is clean.
 - Prefer fetching full file context via the GitHub API at the PR `headRefOid` instead of reading local files.
 - If `gh` auth or network access fails at any point, abort with the `### Error` format. Never silently fall back to `git diff origin/...`.
-- Do not run tests locally. The CI pipeline takes care of this.
+- Do not run tests locally. CI handles this.
 </constraints>
 
-## Shell Setup
+## Shell setup
 
 Export safe defaults (non-interactive):
 
 - `export GH_PAGER=cat GIT_PAGER=cat`
-- `set -euo pipefail`
+- Use `set -euo pipefail` for mandatory preflight and simple single-purpose
+  commands.
+- For optional multi-file context fetches, handle per-file failures explicitly
+  so one 404 does not abort the review.
 
-## Tool Use
+## Tool use
 
 List PRs:
 
@@ -64,14 +70,15 @@ List PRs:
 gh pr list --json number,title,url,updatedAt
 ```
 
-View PR metadata (use only when needed):
+View PR metadata and cache `headRefOid` once:
 
 ```sh
-gh pr view "$PR_NUMBER" \
-  --json number,title,url,updatedAt,comments,reviews,commits,isDraft,labels,baseRefName,headRefName,author,changedFiles,files,state,reviewDecision,body
+PR_JSON=$(gh pr view "$PR_NUMBER" \
+  --json number,title,url,updatedAt,comments,reviews,commits,isDraft,labels,baseRefName,headRefName,headRefOid,author,changedFiles,files,state,reviewDecision,body)
+headRefOid=$(printf '%s' "$PR_JSON" | jq -r .headRefOid)
 ```
 
-Obtain a unified diff (source of truth for summary):
+Obtain a unified diff for small PRs only:
 
 ```sh
 gh pr diff "$PR_NUMBER"
@@ -81,6 +88,13 @@ List changed files quickly:
 
 ```sh
 gh pr diff "$PR_NUMBER" --name-only
+```
+
+For large PRs, avoid dumping the full diff. Use per-file stats first:
+
+```sh
+gh api repos/{owner}/{repo}/pulls/$PR_NUMBER/files --paginate \
+  | jq -r '.[] | [.filename,.status,.additions,.deletions,.changes] | @tsv'
 ```
 
 Get patch for a specific file if needed (no checkout):
@@ -93,14 +107,18 @@ gh api repos/{owner}/{repo}/pulls/$PR_NUMBER/files --paginate \
 Fetch full file context from the PR head SHA (preferred over local reads):
 
 ```sh
-headRefOid=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
 gh api -H "Accept: application/vnd.github.raw" \
   "repos/{owner}/{repo}/contents/$filename?ref=$headRefOid"
 ```
 
+For optional context fetches, a 404 means the file/path is absent at that ref;
+check the PR files API for the actual filename/status. Authentication, network,
+permission, or sandbox failures still require the mandatory `### Error` abort.
+
 Check out the branch only after mandatory preflight succeeds and only if
-absolutely necessary. Before reading local files, verify `git rev-parse HEAD`
-equals `headRefOid` and `git status --short` is clean:
+absolutely necessary. Do not run local git checks unless you are about to read
+local files or check out the PR. Before reading local files, verify
+`git rev-parse HEAD` equals `headRefOid` and `git status --short` is clean:
 
 ```sh
 gh pr checkout "$PR_NUMBER"
@@ -118,16 +136,16 @@ Return **exactly** these sections in order, using concise Markdown. Use
 - ≤8 bullets; each ≤120 chars; start with a verb.
 - Base solely on `gh pr diff`. No claims from PR text here.
 
-### PR Text Discrepancies
+### PR text discrepancies
 
 - Bullets noting any mismatch between diff and PR description/title/body (from
   `gh pr view --json body,title`).
 
 ### Findings
 
-Use tags and file/line anchors. Only include items triggered by the diff.
+Use tags and file-and-line anchors. Only include items triggered by the diff.
 
-- `[bug] path/to/file:123 – what & why`
+- `[bug] path/to/file:123 – what and why`
 - `[security] path/to/file:45 – risk & minimal fix`
 - `[perf] …`
 - `[style] …`
@@ -141,13 +159,13 @@ Where obvious, include a GitHub suggestion block:
 // changed lines only; keep it short
 ```
 
-### Tests & Docs
+### Tests & docs
 
-- For logic changes, do tests exist or need updates? If missing, name the files
-  to add.
+- For logic changes, do tests exist, or do they need updates? If missing, name
+  the files to add.
 - Note required doc updates (README, API docs, migration notes).
 
-### Risk & Scope
+### Risk & scope
 
 - Breaking changes? Dependency bumps? Config/infra/migration impact?
 - Call out high-risk hotspots (concurrency, I/O, auth, input validation,
@@ -165,7 +183,7 @@ If checks are unavailable and the diff does not prove breakage, prefer
 **comment** and state what is unverified.
 </output-format>
 
-## Review Checklist
+## Review checklist
 
 Trigger items only when applicable, based on the diff:
 
@@ -178,7 +196,7 @@ Trigger items only when applicable, based on the diff:
 - API contracts: signature/behavior changes, deprecations, versioning.
 - Dependencies: new packages, version bumps, license/typosquat risk, pinning.
 - Observability: log levels, metrics, structured logs, dead exceptions.
-- Tests: coverage for branches & regressions; flaky patterns.
+- Tests: coverage for branches and regressions; flaky patterns.
 - Docs: updated examples, changelog, migration notes.
 
 ## Style
@@ -219,8 +237,7 @@ gh api repos/{owner}/{repo}/pulls/$PR_NUMBER/files --paginate \
 
 ## Notes
 
-`gh pr diff "$PR_NUMBER"` does not have a `--path` parameter and does not
-support showing diffs selectively for single files.
+`gh pr diff "$PR_NUMBER"` does not support `--path` or per-file diffs.
 
 These do not work:
 
@@ -234,10 +251,12 @@ gh pr diff 445 --path src/foo/bar.c
 └ unknown flag: --path
 ```
 
-Instead, use the GitHub pull-files API for per-file patches or fetch full file
-context from the PR `headRefOid` via the contents API. Only use local `git`
-files after verifying `git rev-parse HEAD` equals the PR `headRefOid` and
-`git status --short` is clean.
+Instead, use the PR files API for per-file patches or fetch full file context
+from the PR `headRefOid` via the contents API. For large PRs, start with
+changed files and per-file stats, then inspect only high-risk files. If output
+is truncated to a temp log, rerun a narrower command instead of reading the
+temp file. Read local files only after verifying `git rev-parse HEAD` equals
+the PR `headRefOid` and `git status --short` is clean.
 
 ## Approvals
 

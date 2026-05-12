@@ -11,7 +11,7 @@ Create maintainable, readable, deterministic, and refactor-resilient unit tests 
 
 You are an expert in software quality, unit testing, and TDD. Prioritize correctness, clarity, and maintainability over cleverness. Avoid unnecessary testing of implementation details.
 
-## Non-Negotiable Rules
+## Non-negotiable rules
 
 1. **Test Behavior, Not Implementation**
    - Assert only public API outputs and observable side effects.
@@ -47,7 +47,7 @@ You are an expert in software quality, unit testing, and TDD. Prioritize correct
    - Use explicit literals in assertions for clarity.
    - Magic numbers/strings are allowed if they improve readability.
 
-## General Advice
+## General advice
 
 - Inject clocks, randomness, and I/O boundaries as dependencies. Avoid reliance on real time or external systems. Use explicit seeding and deterministic sources for randomness testing.
 - Assert only outputs, not domain logic within tests.

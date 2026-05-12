@@ -4,7 +4,7 @@ description: Automate browser interactions, test web pages and work with Playwri
 allowed-tools: Bash(playwright-cli:*) Bash(npx:*) Bash(npm:*)
 ---
 
-# Browser Automation with playwright-cli
+# Browser automation with playwright-cli
 
 ## Quick start
 
@@ -255,7 +255,7 @@ playwright-cli click "getByRole('button', { name: 'Submit' })"
 playwright-cli click "getByTestId('submit-button')"
 ```
 
-## Browser Sessions
+## Browser sessions
 
 ```bash
 # create new browser session named "mysession" with persistent profile

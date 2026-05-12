@@ -19,14 +19,14 @@ Once all question have been clarified follow this structure:
 - List all referenced Jira tickets with summaries where available.
 - Explicitly note missing or unfetched references.
 
-## Acceptance Criteria
+## Acceptance criteria
 - Present concise, bulleted acceptance criteria. Organize as directed by the user or logically.
 
 **Section Order:** Always use this order: Description, Links (if any), Acceptance Criteria.
 - Present every section, even if empty; include guidance or clarification questions as needed.
 - Number clarification questions.
 
-## Output Format
+## Output format
 Use only the following Markdown template, maintaining strict section order:
 
 ```markdown
@@ -36,7 +36,7 @@ Use only the following Markdown template, maintaining strict section order:
 ### Links (if applicable)
 - <Linked ticket 1>
 
-## Acceptance Criteria
+## Acceptance criteria
 - <Acceptance criterion 1>
 - <Acceptance criterion 2>
 - ...

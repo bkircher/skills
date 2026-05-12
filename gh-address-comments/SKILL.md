@@ -5,7 +5,7 @@ metadata:
   short-description: Address comments in a GitHub PR review
 ---
 
-# PR Comment Handler
+# PR comment handler
 
 Guide to find the open PR for the current branch and address its comments with gh CLI. Run all `gh` commands with elevated network access.
 

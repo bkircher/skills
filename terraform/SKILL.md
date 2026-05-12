@@ -3,7 +3,7 @@ name: terraform
 description: Use when writing Terraform.
 ---
 
-# Modern Terraform (v1.11+) Best Practices
+# Modern Terraform (v1.11+) best practices
 
 - Use `try()` for fail-safe defaults; prefer over `element(concat())` for robust error handling.
 - Set `nullable = false` in variables to prevent null assignments and reduce misconfiguration.
@@ -15,7 +15,7 @@ description: Use when writing Terraform.
 - Validate relationships between variables for input correctness.
 - Use write-only arguments for secrets, when supported, to avoid persisting them in state files.
 
-# Naming Conventions
+# Naming conventions
 
 ## Resources
 
@@ -41,7 +41,7 @@ var.vpc_cidr_block
 var.database_instance_class
 ```
 
-## File Structure
+## File structure
 
 - `main.tf`: Core resources.
 - `variables.tf`: Input variables.
@@ -49,7 +49,7 @@ var.database_instance_class
 - `versions.tf`: Provider versions.
 - `data.tf`: (Optional) Data sources.
 
-# Directory Structure
+# Directory structure
 
 - Separate environment configs from modules.
 - Use `examples/` for usage docs and test fixtures.
@@ -68,7 +68,7 @@ examples/        # Usage/test examples
 └── minimal/
 ```
 
-# Module Hierarchy
+# Module hierarchy
 
 **Resource → Resource Module → Infrastructure Module → Composition**
 
@@ -111,7 +111,7 @@ resource "aws_subnet" "private" {
 }
 ```
 
-# Security Guidelines
+# Security guidelines
 
 - Do not hardcode secrets in `.tf` or `.tfvars`; avoid committing secrets to version control.
 - Mark secret variables as `sensitive = true` for UI redaction.

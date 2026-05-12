@@ -3,9 +3,9 @@ name: postgresql-table-design
 description: Design and optimize a PostgreSQL-specific schema. Use for PostgreSQL best practices, data types, indexing, constraints, performance patterns, and advanced features.
 ---
 
-# PostgreSQL Table Design
+# PostgreSQL table design
 
-## Core Rules
+## Core rules
 
 - Use modern PostgreSQL 18 features (virtual columns, uuidv7) if possible.
 - Prefer `text` with `check (length(field) <= N)` over `varchar(N)`.
@@ -26,7 +26,7 @@ description: Design and optimize a PostgreSQL-specific schema. Use for PostgreSQ
 - **Heap storage**: No clustered PK by default. `cluster` is a one-off operation and isn't maintained after further inserts. Row order on disk follows insertion unless explicitly clustered.
 - **MVCC**: Updates/deletes leave dead rows. `vacuum` cleans them. Avoid wide-row and high-churn designs when possible.
 
-## Data Types
+## Data types
 
 - **IDs**: Prefer `bigint generated always as identity`; use `uuid` when federating/distributing or for opaque IDs. Use `uuidv7()`; use `gen_random_uuid()` for PostgreSQL 17 and earlier.
 - **Integers**: Use `bigint` unless space matters, then use `integer` or `smallint` as appropriate.
@@ -46,7 +46,7 @@ description: Design and optimize a PostgreSQL-specific schema. Use for PostgreSQ
 - **JSONB**: Preferred for flexible/optional fields; index with **GIN**. Use JSON only if order matters.
 - **Vector types**: Use `vector` from `pgvector` for embeddings/similarity search.
 
-### Avoid These Data Types
+### Avoid these data types
 
 - Do not use `timestamp` (no timezone); use `timestamptz`.
 - Do not use `char(n)` or `varchar(n)`; use `text`.
@@ -55,13 +55,13 @@ description: Design and optimize a PostgreSQL-specific schema. Use for PostgreSQ
 - Do not use precision like `timestamptz(0)`; use `timestamptz`.
 - Do not use `serial`; use `generated always as identity`.
 
-## Table Types
+## Table types
 
 - **Regular**: Standard, fully durable/logged.
 - **`temporary`**: Session-scoped, not logged, auto-dropped.
 - **`unlogged`**: Fast, not crash-safe. Use for cache/staging.
 
-## Row-Level Security
+## Row-level security
 
 Enable with `alter table tbl enable row level security`, then set policies:
 ```sql
@@ -98,16 +98,16 @@ create policy user_access on orders for select to app_users using (user_id = cur
 - Only declarative partitioning; avoid table inheritance.
 - **Limitations**: No global uniques—include partition key. No FKs from partitioned tables; use triggers.
 
-## Special Considerations
+## Special considerations
 
-### Update-Heavy Tables
+### Update-heavy tables
 
 - Separate frequently updated ("hot") columns into a different table.
 - Set `fillfactor=90` to support HOT updates.
 - Avoid updating indexed columns.
 - Partition based on update patterns.
 
-### Insert-Heavy Workloads
+### Insert-heavy workloads
 
 - Minimize indexes; create only as needed.
 - Use `copy` or multi-row `insert` for bulk loads.
@@ -116,13 +116,13 @@ create policy user_access on orders for select to app_users using (user_id = cur
 - Partition by time/hash to distribute load; TimescaleDB can automate this.
 - Use a natural key as PK if possible; insert-heavy tables may not need a PK. If surrogate needed, prefer `bigint generated always as identity`.
 
-### Upsert-Friendly Design
+### Upsert-friendly design
 
 - `on conflict (col1, col2)` needs a matching unique index (not partial).
 - Use `excluded.column` for referenced values and only update changed columns.
 - `do nothing` is faster than `do update` if no changes required.
 
-### Safe Schema Evolution
+### Safe schema evolution
 
 - Most DDL is transactional (can roll back).
 - Use `create index concurrently` for non-blocking index creation; not in transactions.
@@ -130,7 +130,7 @@ create policy user_access on orders for select to app_users using (user_id = cur
 - Drop constraints before dropping columns to avoid errors.
 - Changing function signatures creates overloads. Drop old as needed.
 
-## Generated Columns
+## Generated columns
 
 - Use `generated always as (...) stored` for computed, indexable columns. Use `virtual` for columns that don't need to be stored.
 
@@ -146,7 +146,7 @@ create policy user_access on orders for select to app_users using (user_id = cur
 - **pgvector**: Vector search.
 - **pgaudit**: Audit logging.
 
-## JSONB Guidance
+## JSONB guidance
 
 - Prefer `jsonb` with GIN index:
   - Containment: `jsonb_col @> '{"k":"v"}'`

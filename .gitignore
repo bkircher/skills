@@ -36,3 +36,4 @@ htmlcov/
 
 # Notebooks
 .ipynb_checkpoints/
+pi-session-*.html

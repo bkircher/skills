@@ -21,11 +21,7 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
-_JIRA_SCRIPTS = os.path.join(
-    os.path.dirname(__file__), "..", "..", "jira-read-ticket", "scripts"
-)
-sys.path.insert(0, _JIRA_SCRIPTS)
-from jira import render_markdown  # noqa: E402
+from adf import render_markdown
 
 PAGE_ID_FROM_URL = re.compile(r"/wiki/spaces/[^/]+/pages/(\d+)")
 PAGE_ID_QUERY = re.compile(r"pageId=(\d+)")

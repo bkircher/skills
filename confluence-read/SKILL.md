@@ -57,4 +57,3 @@ Pass `--children` to include a list of child pages (title and URL only).
 
 - Read-only operation: do not alter page data unless explicitly authorized.
 - Never log or output secrets -- reference environment variable names only.
-- ADF rendering is handled by the shared `jira.py` renderer.

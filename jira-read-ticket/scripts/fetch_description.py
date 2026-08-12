@@ -15,7 +15,8 @@ import sys
 import urllib.parse
 from typing import Any
 
-from jira import JiraClient, extract_issue_key, render_markdown
+from adf import render_markdown
+from jira import JiraClient, extract_issue_key
 
 
 def _find_acceptance_criteria_field_id(client: JiraClient) -> str | None:

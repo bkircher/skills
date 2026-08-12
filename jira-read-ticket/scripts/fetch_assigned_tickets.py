@@ -81,7 +81,6 @@ def fetch_assigned_tickets(client: JiraClient) -> list[dict[str, Any]]:
                 "Jira search response is not the last page and has no nextPageToken"
             )
 
-    tickets.sort(key=lambda item: item.get("updated_at") or "", reverse=True)
     return tickets
 
 

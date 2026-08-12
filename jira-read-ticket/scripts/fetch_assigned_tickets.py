@@ -8,70 +8,14 @@ Usage:
   python fetch_assigned_tickets.py | jq
 """
 
-import base64
 import json
-import os
-import sys
-import urllib.error
-import urllib.request
 from typing import Any
 
-
-def _require_env(name: str) -> str:
-    value = os.getenv(name)
-    if not value:
-        print(f"Missing environment variable: {name}", file=sys.stderr)
-        raise SystemExit(2)
-    return value
-
-
-def _load_auth() -> str:
-    email = _require_env("ATLASSIAN_EMAIL")
-    token = _require_env("ATLASSIAN_API_TOKEN")
-    creds = f"{email}:{token}".encode("utf-8")
-    return "Basic " + base64.b64encode(creds).decode("utf-8")
-
-
-def _request_json(
-    method: str,
-    url: str,
-    auth_header: str,
-    payload: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    data = None
-    headers = {
-        "Accept": "application/json",
-        "Authorization": auth_header,
-    }
-    if payload is not None:
-        data = json.dumps(payload).encode("utf-8")
-        headers["Content-Type"] = "application/json"
-
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(req) as resp:
-            raw = resp.read().decode("utf-8")
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode("utf-8", errors="replace")
-        raise RequestError(e.code, url, err_body) from e
-
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise RuntimeError(f"Failed to parse JSON from {url}: {e}\nRaw:\n{raw}") from e
-
-
-class RequestError(RuntimeError):
-    def __init__(self, status: int, url: str, body: str) -> None:
-        super().__init__(f"HTTP {status} for {url}\n{body}")
-        self.status = status
-        self.url = url
-        self.body = body
+from jira import JiraClient
 
 
 def _search_page(
-    base_url: str,
-    auth_header: str,
+    client: JiraClient,
     jql: str,
     fields: list[str],
     max_results: int,
@@ -85,11 +29,14 @@ def _search_page(
     if next_page_token is not None:
         payload["nextPageToken"] = next_page_token
 
-    url = f"{base_url}/rest/api/3/search/jql"
-    return _request_json("POST", url, auth_header, payload=payload)
+    return client.request_object(
+        method="POST",
+        path="/rest/api/3/search/jql",
+        payload=payload,
+    )
 
 
-def fetch_assigned_tickets(base_url: str, auth_header: str) -> list[dict[str, Any]]:
+def fetch_assigned_tickets(client: JiraClient) -> list[dict[str, Any]]:
     jql = "assignee = currentUser() order by updated DESC"
     fields = ["summary", "status", "priority", "labels", "created", "updated"]
     max_results = 100
@@ -98,8 +45,7 @@ def fetch_assigned_tickets(base_url: str, auth_header: str) -> list[dict[str, An
 
     while True:
         data = _search_page(
-            base_url=base_url,
-            auth_header=auth_header,
+            client=client,
             jql=jql,
             fields=fields,
             max_results=max_results,
@@ -117,7 +63,7 @@ def fetch_assigned_tickets(base_url: str, auth_header: str) -> list[dict[str, An
                 {
                     "key": key,
                     "title": issue_fields.get("summary"),
-                    "url": f"{base_url}/browse/{key}" if key else None,
+                    "url": f"{client.base_url}/browse/{key}" if key else None,
                     "status": status_name,
                     "priority": (issue_fields.get("priority") or {}).get("name"),
                     "labels": issue_fields.get("labels") or [],
@@ -140,9 +86,8 @@ def fetch_assigned_tickets(base_url: str, auth_header: str) -> list[dict[str, An
 
 
 def main() -> None:
-    base_url = _require_env("ATLASSIAN_URL").rstrip("/")
-    auth_header = _load_auth()
-    tickets = fetch_assigned_tickets(base_url, auth_header)
+    client = JiraClient.from_env()
+    tickets = fetch_assigned_tickets(client)
     print(json.dumps(tickets, indent=2))
 
 

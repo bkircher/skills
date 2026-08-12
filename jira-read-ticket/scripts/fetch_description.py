@@ -10,95 +10,46 @@ Usage:
   python fetch_description.py https://example.atlassian.net/browse/ABC-123 > description.json
 """
 
-import base64
 import json
-import os
-import re
 import sys
-import urllib.error
 import urllib.parse
-import urllib.request
 from typing import Any
 
-from jira import render_markdown
+from jira import JiraClient, extract_issue_key, render_markdown
 
 
-ISSUE_KEY_RE = re.compile(r"\b([A-Z][A-Z0-9]+-\d+)\b")
-
-
-def _require_env(name: str) -> str:
-    value = os.getenv(name)
-    if not value:
-        print(f"Missing environment variable: {name}", file=sys.stderr)
-        raise SystemExit(2)
-    return value
-
-
-def _load_auth() -> str:
-    email = _require_env("ATLASSIAN_EMAIL")
-    token = _require_env("ATLASSIAN_API_TOKEN")
-    creds = f"{email}:{token}".encode("utf-8")
-    return "Basic " + base64.b64encode(creds).decode("utf-8")
-
-
-def _request_json(
-    method: str, url: str, auth_header: str
-) -> dict[str, Any] | list[Any]:
-    req = urllib.request.Request(
-        url,
-        headers={"Accept": "application/json", "Authorization": auth_header},
-        method=method,
-    )
-    try:
-        with urllib.request.urlopen(req) as resp:
-            raw = resp.read().decode("utf-8")
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"HTTP {e.code} for {url}\n{err_body}") from e
-
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise RuntimeError(f"Failed to parse JSON from {url}: {e}\nRaw:\n{raw}") from e
-
-
-def _extract_issue_key(value: str) -> str:
-    match = ISSUE_KEY_RE.search(value)
-    if not match:
-        raise ValueError(f"Could not find a Jira issue key in: {value}")
-    return match.group(1)
-
-
-def _find_acceptance_criteria_field_id(base_url: str, auth_header: str) -> str | None:
-    fields = _request_json("GET", f"{base_url}/rest/api/3/field", auth_header)
-    if not isinstance(fields, list):
-        return None
+def _find_acceptance_criteria_field_id(client: JiraClient) -> str | None:
+    fields = client.request_array("GET", "/rest/api/3/field")
 
     for field in fields:
+        if not isinstance(field, dict):
+            continue
         name = (field.get("name") or "").strip().lower()
-        if name == "acceptance criteria":
-            return field.get("id")
+        field_id = field.get("id")
+        if name == "acceptance criteria" and isinstance(field_id, str):
+            return field_id
 
     for field in fields:
+        if not isinstance(field, dict):
+            continue
         name = (field.get("name") or "").strip().lower()
-        if "acceptance criteria" in name:
-            return field.get("id")
+        field_id = field.get("id")
+        if "acceptance criteria" in name and isinstance(field_id, str):
+            return field_id
 
     return None
 
 
-def fetch_description(base_url: str, auth_header: str, issue_key: str) -> dict[str, Any]:
-    acceptance_field_id = _find_acceptance_criteria_field_id(base_url, auth_header)
+def fetch_description(client: JiraClient, issue_key: str) -> dict[str, Any]:
+    acceptance_field_id = _find_acceptance_criteria_field_id(client)
     fields = ["description", "labels", "parent", "status", "created", "updated"]
     if acceptance_field_id:
         fields.append(acceptance_field_id)
 
     query = urllib.parse.urlencode({"fields": ",".join(fields)})
     encoded_key = urllib.parse.quote(issue_key)
-    url = f"{base_url}/rest/api/3/issue/{encoded_key}?{query}"
-    data = _request_json("GET", url, auth_header)
-    if not isinstance(data, dict):
-        raise RuntimeError(f"Expected a JSON object from {url}")
+    path = f"/rest/api/3/issue/{encoded_key}?{query}"
+    data = client.request_object("GET", path)
 
     issue_fields = data.get("fields") or {}
     parent = issue_fields.get("parent") or {}
@@ -109,12 +60,12 @@ def fetch_description(base_url: str, auth_header: str, issue_key: str) -> dict[s
         parent_value = {
             "key": parent_key,
             "title": parent_fields.get("summary"),
-            "url": f"{base_url}/browse/{parent_key}" if parent_key else None,
+            "url": f"{client.base_url}/browse/{parent_key}" if parent_key else None,
         }
 
     result = {
         "key": data.get("key"),
-        "url": f"{base_url}/browse/{issue_key}",
+        "url": f"{client.base_url}/browse/{issue_key}",
         "description_markdown": render_markdown(issue_fields.get("description")),
         "acceptance_criteria_markdown": render_markdown(
             issue_fields.get(acceptance_field_id) if acceptance_field_id else None
@@ -133,10 +84,9 @@ def main() -> None:
         print("Usage: fetch_description.py <ISSUE_KEY_OR_URL>", file=sys.stderr)
         raise SystemExit(2)
 
-    issue_key = _extract_issue_key(sys.argv[1])
-    base_url = _require_env("ATLASSIAN_URL").rstrip("/")
-    auth_header = _load_auth()
-    result = fetch_description(base_url, auth_header, issue_key)
+    issue_key = extract_issue_key(sys.argv[1])
+    client = JiraClient.from_env()
+    result = fetch_description(client, issue_key)
     print(json.dumps(result, indent=2))
 
 

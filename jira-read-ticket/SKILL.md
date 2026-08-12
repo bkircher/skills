@@ -26,10 +26,10 @@ Variables: ATLASSIAN_URL, ATLASSIAN_EMAIL, ATLASSIAN_API_TOKEN
 
 ### 3) Fetch data
 
-Use these scripts before alternatives:
-- `scripts/fetch_comments.py`: Gets all ticket comments as JSON.
-- `scripts/fetch_assigned_tickets.py`: Gets assigned tickets (JSON array).
-- `scripts/fetch_description.py`: Gets description and details for one ticket (JSON).
+Use these scripts with `python3` before alternatives:
+- `python3 scripts/fetch_comments.py <issue-key>`: Gets all ticket comments as JSON.
+- `python3 scripts/fetch_assigned_tickets.py`: Gets assigned tickets (JSON array).
+- `python3 scripts/fetch_description.py <issue-key>`: Gets description and details for one ticket (JSON).
 
 Alternatively, use Jira REST API v3 with basic authentication, `curl`, and `jq`. Example for assigned tickets with JQL:
 <example>

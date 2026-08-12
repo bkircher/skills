@@ -10,8 +10,6 @@ Usage:
   python fetch_description.py https://example.atlassian.net/browse/ABC-123 > description.json
 """
 
-from __future__ import annotations
-
 import base64
 import json
 import os

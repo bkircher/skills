@@ -7,8 +7,6 @@ Usage:
   python fetch_comments.py https://example.atlassian.net/browse/ABC-123 | jq
 """
 
-from __future__ import annotations
-
 import base64
 import json
 import os

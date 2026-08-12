@@ -1,12 +1,9 @@
-#!/usr/bin/env python3
 """
 Jira helpers.
 
 The render_markdown function accepts either a Jira description doc or a Jira
 comment object that contains a "body" field.
 """
-
-from __future__ import annotations
 
 from typing import Any
 

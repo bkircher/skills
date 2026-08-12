@@ -41,7 +41,9 @@ def _load_auth() -> str:
     return "Basic " + base64.b64encode(creds).decode("utf-8")
 
 
-def _request_json(method: str, url: str, auth_header: str) -> dict[str, Any]:
+def _request_json(
+    method: str, url: str, auth_header: str
+) -> dict[str, Any] | list[Any]:
     req = urllib.request.Request(
         url,
         headers={"Accept": "application/json", "Authorization": auth_header},
@@ -95,6 +97,8 @@ def fetch_description(base_url: str, auth_header: str, issue_key: str) -> dict[s
     encoded_key = urllib.parse.quote(issue_key)
     url = f"{base_url}/rest/api/3/issue/{encoded_key}?{query}"
     data = _request_json("GET", url, auth_header)
+    if not isinstance(data, dict):
+        raise RuntimeError(f"Expected a JSON object from {url}")
 
     issue_fields = data.get("fields") or {}
     parent = issue_fields.get("parent") or {}

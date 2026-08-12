@@ -13,7 +13,6 @@ import json
 import os
 import sys
 import urllib.error
-import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -75,98 +74,37 @@ def _search_page(
     auth_header: str,
     jql: str,
     fields: list[str],
-    start_at: int,
     max_results: int,
-    mode: str,
+    next_page_token: str | None,
 ) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "jql": jql,
+        "fields": fields,
+        "maxResults": max_results,
+    }
+    if next_page_token is not None:
+        payload["nextPageToken"] = next_page_token
+
     url = f"{base_url}/rest/api/3/search/jql"
-    if mode == "post-object":
-        payload = {
-            "jql": {"query": jql},
-            "fields": fields,
-            "startAt": start_at,
-            "maxResults": max_results,
-        }
-        return _request_json("POST", url, auth_header, payload=payload)
-    if mode == "post-string":
-        payload = {
-            "jql": jql,
-            "fields": fields,
-            "startAt": start_at,
-            "maxResults": max_results,
-        }
-        return _request_json("POST", url, auth_header, payload=payload)
-    if mode == "get":
-        query = {
-            "jql": jql,
-            "fields": ",".join(fields),
-            "startAt": str(start_at),
-            "maxResults": str(max_results),
-        }
-        return _request_json(
-            "GET",
-            f"{url}?{urllib.parse.urlencode(query)}",
-            auth_header,
-        )
-    raise ValueError(f"Unknown search mode: {mode}")
-
-
-def _search_page_with_fallback(
-    base_url: str,
-    auth_header: str,
-    jql: str,
-    fields: list[str],
-    start_at: int,
-    max_results: int,
-) -> tuple[dict[str, Any], str]:
-    last_error: RequestError | None = None
-    for mode in ("post-object", "post-string", "get"):
-        try:
-            return _search_page(
-                base_url=base_url,
-                auth_header=auth_header,
-                jql=jql,
-                fields=fields,
-                start_at=start_at,
-                max_results=max_results,
-                mode=mode,
-            ), mode
-        except RequestError as e:
-            last_error = e
-            if e.status not in (400, 405):
-                raise
-    assert last_error is not None
-    raise last_error
+    return _request_json("POST", url, auth_header, payload=payload)
 
 
 def fetch_assigned_tickets(base_url: str, auth_header: str) -> list[dict[str, Any]]:
     jql = "assignee = currentUser() order by updated DESC"
     fields = ["summary", "status", "priority", "labels", "created", "updated"]
-    start_at = 0
     max_results = 100
+    next_page_token: str | None = None
     tickets: list[dict[str, Any]] = []
-    request_mode: str | None = None
 
     while True:
-        if request_mode is None:
-            data, request_mode = _search_page_with_fallback(
-                base_url=base_url,
-                auth_header=auth_header,
-                jql=jql,
-                fields=fields,
-                start_at=start_at,
-                max_results=max_results,
-            )
-        else:
-            data = _search_page(
-                base_url=base_url,
-                auth_header=auth_header,
-                jql=jql,
-                fields=fields,
-                start_at=start_at,
-                max_results=max_results,
-                mode=request_mode,
-            )
+        data = _search_page(
+            base_url=base_url,
+            auth_header=auth_header,
+            jql=jql,
+            fields=fields,
+            max_results=max_results,
+            next_page_token=next_page_token,
+        )
 
         issues = data.get("issues") or []
         for issue in issues:
@@ -188,13 +126,14 @@ def fetch_assigned_tickets(base_url: str, auth_header: str) -> list[dict[str, An
                 }
             )
 
-        total = data.get("total")
-        start_at = data.get("startAt", start_at)
-        max_results = data.get("maxResults", max_results)
-
-        if total is None or start_at + max_results >= total:
+        if data.get("isLast") is True:
             break
-        start_at += max_results
+
+        next_page_token = data.get("nextPageToken")
+        if not isinstance(next_page_token, str) or not next_page_token:
+            raise RuntimeError(
+                "Jira search response is not the last page and has no nextPageToken"
+            )
 
     tickets.sort(key=lambda item: item.get("updated_at") or "", reverse=True)
     return tickets

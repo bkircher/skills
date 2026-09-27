@@ -123,7 +123,7 @@ List of skills:
 
 | Skill               | Description                                                                                                           |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| confluence-read     | Search Confluence pages and fetch page content                                                                        |
+| confluence          | Search, read, draft, create, and update Confluence Cloud pages                                                        |
 | english-text-editor | Suggests improvements for English language text (spelling, wording)                                                   |
 | gh-address-comments | Address review/issue comments on open GitHub PR for current branch [Source]                                           |
 | gh-code-review      | Conduct thorough code review for a GitHub PR                                                                          |

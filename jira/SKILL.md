@@ -1,6 +1,6 @@
 ---
 name: jira
-description: Search, read, draft, create, update, and transition Jira Cloud issues. Use for Jira tickets, status changes, descriptions, acceptance criteria, labels, comments, issue metadata, and JQL searches.
+description: Search, read, draft, create, update, and transition Jira Cloud issues. Use for tickets, comments, labels, acceptance criteria, and JQL searches.
 compatibility: Requires Python >=3.14, Jira Cloud network access, and ATLASSIAN_URL, ATLASSIAN_EMAIL, and ATLASSIAN_API_TOKEN environment variables.
 ---
 

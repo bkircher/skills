@@ -58,7 +58,7 @@ Should output something like:
   - gh-code-review
   - gh-run-failure
   - git-commit-message
-  - jira-read-ticket
+  - jira
 ~~~~
 
 
@@ -110,7 +110,7 @@ Then in Claude CLI:
   - english-text-editor - Suggests improvements for English language text (spelling, wording)
 
   Project Management:
-  - jira-read-ticket - Read Jira ticket description, comments, and details
+  - jira - Search, read, draft, create, and update Jira tickets
 
   You can invoke any skill using the / prefix, for example: /gh-code-review or /git-commit-message
 ~~~~
@@ -129,8 +129,7 @@ List of skills:
 | gh-code-review      | Conduct thorough code review for a GitHub PR                                                                          |
 | gh-run-failure      | Analyze failures in GitHub pipelines or jobs                                                                          |
 | git-commit-message  | Generate Git commit messages from staged changes when requested                                                       |
-| jira-read-ticket    | Pull description, comments, or more from a Jira ticket                                                                |
-| jira-write-ticket   | Write a Jira ticket                                                                                                   |
+| jira                | Search, read, draft, create, and update Jira tickets through one shared client                                        |
 | playwright-cli      | Automate browser interactions, test web pages, and work with Playwright tests [Source] (added 2026-04-06, Apache-2.0) |
 | snyk-cli            | Scan and triage Snyk security findings in local repositories and container images                                     |
 | sonar-cli           | Access and understand SonarQube analysis results with the SonarQube CLI                                               |

@@ -10,11 +10,24 @@ on:
   workflow_dispatch:
 
 jobs:
+  test-jira:
+    runs-on: ubuntu-latest
+    name: Test Jira skill
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - name: Run Jira tests
+        run: python -B -W error::ResourceWarning -m unittest discover -s jira/tests -v
+
   check-spelling:
     runs-on: ubuntu-latest
     name: Spell check source files
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Check for spelling mistakes
-        uses: crate-ci/typos@v1.42.1
+        uses: crate-ci/typos@v1

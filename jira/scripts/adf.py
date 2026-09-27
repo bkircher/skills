@@ -1,6 +1,6 @@
-"""Render Atlassian Document Format as Markdown.
+"""Render Jira text and Atlassian Document Format as Markdown.
 
-Each skill bundles this module so its scripts can run independently.
+This is a read format, not a lossless source for editing existing documents.
 """
 
 from typing import Any
@@ -9,8 +9,10 @@ from typing import Any
 INDENT = "  "
 
 
-def render_markdown(value: dict[str, Any] | None) -> str:
-    """Render Atlassian Document Format as Markdown."""
+def render_markdown(value: dict[str, Any] | str | None) -> str:
+    """Render rich text without discarding plain-text custom fields."""
+    if isinstance(value, str):
+        return value
     doc = _extract_doc(value)
     if not doc:
         return ""
@@ -175,7 +177,7 @@ class _MarkdownRenderer:
         lines = ["| " + " | ".join(first_row + [""] * (col_count - len(first_row))) + " |"]
         if header_row:
             lines.append("| " + " | ".join(["---"] * col_count) + " |")
-        for row in rendered_rows[1 if header_row else 0 :]:
+        for row in rendered_rows[1:]:
             lines.append("| " + " | ".join(row + [""] * (col_count - len(row))) + " |")
         return lines
 

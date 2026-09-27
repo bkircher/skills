@@ -34,7 +34,7 @@ class CliTests(unittest.TestCase):
             main(["--help"])
 
         self.assertEqual(raised.exception.code, 0)
-        self.assertIn("search,get,update,create,metadata", self.stdout.getvalue())
+        self.assertIn("search,get,update,transitions,transition,create,metadata", self.stdout.getvalue())
         self.factory.assert_not_called()
 
     def test_get_prints_json(self):
@@ -103,6 +103,85 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("not a list", self.stderr.getvalue())
         self.factory.assert_not_called()
+
+    def test_transition_apply_requires_input_before_credentials(self):
+        with self.assertRaises(SystemExit) as raised:
+            main(["transition", "ABC-1", "--id", "31"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.factory.assert_not_called()
+
+    def test_transition_requires_exactly_one_selector(self):
+        with self.assertRaises(SystemExit) as raised:
+            main(["transition", "ABC-1", "--id", "31", "--name", "Finish", "--preview"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.factory.assert_not_called()
+
+    def test_transition_rejects_duplicate_keys_before_credentials(self):
+        with patch("sys.stdin", io.StringIO('{"fields": {}, "fields": {}}')):
+            code = main(["transition", "ABC-1", "--id", "31", "--preview", "--input", "-"])
+
+        self.assertEqual(code, 2)
+        self.assertIn("duplicate key", self.stderr.getvalue())
+        self.factory.assert_not_called()
+
+    def test_transition_rejects_non_finite_number_before_credentials(self):
+        with patch("sys.stdin", io.StringIO('{"fields": {"customfield_1": NaN}}')):
+            code = main(["transition", "ABC-1", "--id", "31", "--preview", "--input", "-"])
+
+        self.assertEqual(code, 2)
+        self.assertIn("non-finite", self.stderr.getvalue())
+        self.factory.assert_not_called()
+
+    def test_transition_rejects_unsupported_payload_before_credentials(self):
+        with patch("sys.stdin", io.StringIO('{"fields": {"status": {"id": "3"}}}')):
+            code = main(["transition", "ABC-1", "--id", "31", "--preview", "--input", "-"])
+
+        self.assertEqual(code, 2)
+        self.assertIn("not supported", self.stderr.getvalue())
+        self.factory.assert_not_called()
+
+    def test_transition_listing_uses_issue_and_transition_reads(self):
+        self.client.request_object.side_effect = [
+            {"key": "ABC-1", "fields": {"status": {"id": "1", "name": "Open"}}},
+            {"transitions": []},
+        ]
+
+        code = main(["transitions", "ABC-1"])
+
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(self.stdout.getvalue())["transitions"], [])
+        self.client.request_json.assert_not_called()
+
+    def test_transition_preview_without_input_returns_snapshot(self):
+        self.client.request_object.side_effect = [
+            {"transitions": [{"id": "31", "name": "Finish", "to": {"id": "3", "name": "Done"},
+                              "fields": {}}]},
+            {"key": "ABC-1", "fields": {"status": {"id": "1", "name": "Open"}}},
+        ]
+
+        code = main(["transition", "ABC-1", "--to-status", "Done", "--preview"])
+
+        self.assertEqual(code, 0)
+        self.assertEqual(list(json.loads(self.stdout.getvalue())["snapshot"]["hashes"]), ["status"])
+        self.client.request_json.assert_not_called()
+
+    def test_transition_unknown_has_a_distinct_exit_code(self):
+        with patch("sys.stdin", io.StringIO("{}")), patch(
+            "jira.JiraIssues.transition", return_value={"status": "unknown", "verified": False}
+        ):
+            code = main(["transition", "ABC-1", "--id", "31", "--input", "-"])
+
+        self.assertEqual(code, 3)
+
+    def test_transition_conflict_has_a_nonzero_exit_code(self):
+        with patch("sys.stdin", io.StringIO("{}")), patch(
+            "jira.JiraIssues.transition", return_value={"status": "conflict", "verified": False}
+        ):
+            code = main(["transition", "ABC-1", "--id", "31", "--input", "-"])
+
+        self.assertEqual(code, 1)
 
     def test_delete_command_is_not_available(self):
         with self.assertRaises(SystemExit) as raised:

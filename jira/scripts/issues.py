@@ -9,7 +9,7 @@ from typing import Any
 from adf import render_markdown
 from changes import (
     FIELD_ID, build_changes, validate_fields, validate_label_operations,
-    validate_spec, value_matches,
+    validate_spec, validate_transition_fields, validate_transition_spec, value_matches,
 )
 from client import JiraClient, RequestError, extract_issue_key
 from metadata import Metadata, edit_fields, project_identifier
@@ -150,6 +150,146 @@ class JiraIssues:
         return {"items": items, "total": total, "start_at": start,
                 "truncated": position < total,
                 "next_start_at": position if position < total else None}
+
+    def transitions(self, issue: str) -> dict[str, Any]:
+        key = self.issue_key(issue)
+        data = self._fetch(key, ["status"])
+        key = extract_issue_key(data["key"])
+        status = _status(data["fields"].get("status"))
+        choices = self._transitions(key)
+        return {"key": key, "url": f"{self.client.base_url}/browse/{key}",
+                "current_status": status, "transitions": choices,
+                "snapshot": self._snapshot(key, {"status": data["fields"]["status"]})}
+
+    def transition(
+        self, issue: str, spec: dict[str, Any] | None = None, *,
+        transition_id: str | None = None, name: str | None = None,
+        to_status: str | None = None, preview: bool = False,
+    ) -> dict[str, Any]:
+        key = self.issue_key(issue)
+        selectors = {"id": transition_id, "name": name, "to-status": to_status}
+        if sum(value is not None for value in selectors.values()) != 1:
+            raise ValueError("Supply exactly one of --id, --name, or --to-status")
+        for selector, value in selectors.items():
+            if value is not None and (not isinstance(value, str) or not value.strip()
+                                      or (selector == "id" and (not value.isascii() or not value.isdecimal()))):
+                raise ValueError(f"Invalid transition {selector}")
+        if spec is None:
+            if not preview:
+                raise ValueError("Apply requires --input with expected from a preview")
+            spec = {}
+        affected = validate_transition_spec(spec)
+        expected = spec.get("expected")
+        covered = ["status", *affected]
+        if expected is None and not preview:
+            raise ValueError("Transition requires expected: copy the snapshot from --preview")
+        if expected is not None:
+            self._validate_snapshot(expected, key, covered)
+
+        choices = self._transitions(key)
+        selector, value = next((kind, item) for kind, item in selectors.items() if item is not None)
+        matches = [choice for choice in choices if (
+            choice["id"] if selector == "id" else
+            choice["name"] if selector == "name" else choice["to"]["name"]
+        ).casefold() == value.casefold()]
+        if len(matches) != 1:
+            # An old snapshot takes precedence over a missing workflow choice.
+            if expected is not None:
+                data = self._fetch(key, covered)
+                if self._transition_conflict(data, key, covered, expected):
+                    return {**self._result("conflict", "transition", key), "verified": False,
+                            "message": "Source fields changed. Read the issue again. No write was sent."}
+            raise ValueError("Transition is unavailable or ambiguous; list transitions again")
+        choice = matches[0]
+        metadata = choice["fields"]
+        required = [field for field, info in metadata.items() if info["required"]]
+        selected_fields = list(dict.fromkeys(["status", *affected, *required]))
+        data = self._fetch(key, selected_fields)
+        current = data["fields"]
+        if self._transition_conflict(data, key, covered, expected):
+            return {**self._result("conflict", "transition", key), "verified": False,
+                    "message": "Source fields changed. Read the issue again. No write was sent."}
+        if "status" not in current or set(affected) - current.keys():
+            raise ValueError("Jira omitted a transition source field; no write was sent")
+        before = _status(current["status"])
+        result = {**self._result("preview", "transition", key),
+                  "transition": {"id": choice["id"], "name": choice["name"], "to": choice["to"]},
+                  "before_status": before, "target_status": choice["to"],
+                  "screen_fields": metadata, "required_fields": sorted(required),
+                  "changed_fields": affected}
+        if before["id"] == choice["to"]["id"]:
+            raise ValueError("Self-loop transitions are not supported; no write was sent")
+        fields, _ = build_changes(spec, metadata, current)
+        validate_transition_fields(fields, metadata, current)
+        if preview:
+            result["changes"] = {field: _diff(current[field], fields[field]) for field in affected}
+            result["snapshot"] = self._snapshot(key, {field: current[field] for field in covered})
+            return result
+        payload = {"transition": {"id": choice["id"]}}
+        if fields:
+            payload["fields"] = fields
+        try:
+            self.client.request_json("POST", f"/rest/api/3/issue/{key}/transitions", payload)
+        except (RuntimeError, OSError) as error:
+            return self._write_error(result, error)
+        try:
+            saved = self._fetch(key, list(dict.fromkeys(["status", "resolution", *affected])))
+        except (RuntimeError, OSError) as error:
+            return {**result, "status": "unverified", "write_accepted": True,
+                    "verified": False, "message": f"Write accepted, but verification failed: {error}"}
+        actual = saved["fields"]
+        result["observed_resolution"] = actual.get("resolution")
+        try:
+            saved_status = _status(actual.get("status"))
+        except RuntimeError as error:
+            return {**result, "status": "unverified", "write_accepted": True,
+                    "verified": False, "message": f"Write accepted, but verification failed: {error}"}
+        mismatches = [field for field, value in fields.items()
+                      if field not in actual or not value_matches(
+                          value, actual[field], field, schema=metadata[field].get("schema"))]
+        if saved["key"] != key or saved_status["id"] != choice["to"]["id"]:
+            mismatches.append("status")
+        if "resolution" not in actual:
+            mismatches.append("resolution")
+        if mismatches:
+            return {**result, "status": "unverified", "write_accepted": True,
+                    "verified": False, "mismatched_fields": sorted(set(mismatches)),
+                    "message": "Write accepted, but the saved issue differs. Do not repeat the write automatically."}
+        return {**result, "status": "transitioned", "write_accepted": True, "verified": True}
+
+    def _transitions(self, key: str) -> list[dict[str, Any]]:
+        path = f"/rest/api/3/issue/{key}/transitions?expand=transitions.fields"
+        data = self.client.request_object("GET", path)
+        items = data.get("transitions")
+        if not isinstance(items, list):
+            raise RuntimeError("Jira returned invalid transition data")
+        choices = []
+        for item in items:
+            if not isinstance(item, dict) or not _jira_id(item.get("id")) or not _name(item.get("name")):
+                raise RuntimeError("Jira returned invalid transition IDs or names")
+            target = _status(item.get("to"))
+            metadata = item.get("fields")
+            if not isinstance(metadata, dict):
+                raise RuntimeError("Jira did not return transition-screen metadata; no write was sent")
+            for field, info in metadata.items():
+                if (not isinstance(field, str) or not FIELD_ID.fullmatch(field)
+                        or not isinstance(info, dict) or type(info.get("required")) is not bool
+                        or not isinstance(info.get("schema"), dict)
+                        or not isinstance(info.get("operations"), list)
+                        or any(not isinstance(op, str) for op in info["operations"])
+                        or ("hasDefaultValue" in info and type(info["hasDefaultValue"]) is not bool)
+                        or ("allowedValues" in info and not isinstance(info["allowedValues"], list))):
+                    raise RuntimeError("Jira returned invalid transition-screen metadata")
+            choices.append({"id": item["id"], "name": item["name"], "to": target,
+                            "fields": metadata})
+        return choices
+
+    def _transition_conflict(
+        self, data: dict[str, Any], key: str, covered: list[str], expected: Any,
+    ) -> bool:
+        return (data["key"] != key or (expected is not None and any(
+            field not in data["fields"] or expected["hashes"][field] != _hash(data["fields"][field])
+            for field in covered)))
 
     def update(self, issue: str, spec: dict[str, Any], *, preview: bool = False) -> dict[str, Any]:
         key = self.issue_key(issue)
@@ -309,6 +449,21 @@ class JiraIssues:
                     "message": "Write accepted, but the saved issue differs. Do not repeat the write automatically."}
         return {**result, "status": "created" if result["operation"] == "create" else "updated",
                 "write_accepted": True, "verified": True}
+
+
+def _jira_id(value: Any) -> bool:
+    return isinstance(value, str) and value.isascii() and value.isdecimal()
+
+
+def _name(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _status(value: Any) -> dict[str, str]:
+    if (not isinstance(value, dict) or not _jira_id(value.get("id"))
+            or not _name(value.get("name"))):
+        raise RuntimeError("Jira returned invalid status data")
+    return {"id": value["id"], "name": value["name"]}
 
 
 def _field_list(fields: list[str]) -> list[str]:

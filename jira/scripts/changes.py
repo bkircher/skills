@@ -17,7 +17,7 @@ REFERENCE_TYPES = {
     "user", "priority", "option", "project", "issuetype", "issuelink",
     "component", "version", "securitylevel", "group",
 }
-REFERENCE_FIELDS = {"assignee", "reporter", "priority", "project", "issuetype", "parent", "security"}
+REFERENCE_FIELDS = {"assignee", "reporter", "priority", "project", "issuetype", "parent", "security", "resolution"}
 
 
 def validate_spec(spec: Any, *, creating: bool) -> list[str]:
@@ -72,6 +72,51 @@ def validate_spec(spec: Any, *, creating: bool) -> list[str]:
     if not creating and not affected:
         raise ValueError("At least one field change is required")
     return sorted(affected)
+
+
+def validate_transition_spec(spec: Any) -> list[str]:
+    """Accept only whole transition-screen fields and an optional snapshot."""
+    if not isinstance(spec, dict):
+        raise ValueError("Input must be one JSON object, not a list of issues")
+    unknown = spec.keys() - {"expected", "fields", "text"}
+    if unknown:
+        raise ValueError("Unknown input keys: " + ", ".join(sorted(unknown)))
+    fields, text = spec.get("fields", {}), spec.get("text", {})
+    if not isinstance(fields, dict) or not isinstance(text, dict):
+        raise ValueError("fields and text must be objects")
+    if fields.keys() & text.keys():
+        raise ValueError("Do not supply a field through both fields and text")
+    affected = set(fields) | set(text)
+    for field in affected:
+        if not FIELD_ID.fullmatch(field) or field in PROTECTED - {"resolution"}:
+            raise ValueError(f"Field {field} is not supported for a transition")
+    for content in text.values():
+        _content_format(content)
+    return sorted(affected)
+
+
+def validate_transition_fields(
+    fields: dict[str, Any], metadata: dict[str, Any], current: dict[str, Any],
+) -> None:
+    """Check supplied values and required transition-screen fields, not editmeta."""
+    if "resolution" in fields:
+        value = fields["resolution"]
+        choices = metadata.get("resolution", {}).get("allowedValues")
+        if (not isinstance(value, dict) or set(value) != {"id"}
+                or not isinstance(value["id"], str) or not value["id"].isascii()
+                or not value["id"].isdecimal() or not isinstance(choices, list)
+                or not any(isinstance(choice, dict) and choice.get("id") == value["id"]
+                           for choice in choices)):
+            raise ValueError("resolution requires an ID offered by this transition screen")
+    validate_fields(fields, metadata)
+    for field, info in metadata.items():
+        if not info["required"]:
+            continue
+        if field in PROTECTED - {"resolution"} or "set" not in info["operations"]:
+            raise ValueError(f"Required transition field {field} uses an unsupported operation")
+        if field not in fields and not info.get("hasDefaultValue"):
+            if field not in current or current[field] is None or current[field] in ("", [], {}):
+                raise ValueError(f"Missing required transition field: {field}")
 
 
 def build_changes(

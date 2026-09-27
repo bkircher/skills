@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Search, read, update, and create Jira issues through one command interface."""
+"""Search, read, update, create, and transition Jira issues."""
 
 import argparse
 import json
@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from changes import validate_transition_spec
 from client import JiraClient
 from issues import JiraIssues
 
@@ -43,6 +44,18 @@ def parser() -> argparse.ArgumentParser:
     update.add_argument("--input", required=True, help="JSON file, or - for stdin")
     update.add_argument("--preview", action="store_true", help="Read and validate, but do not write")
 
+    transitions = commands.add_parser("transitions", help="List available workflow transitions for one issue")
+    transitions.add_argument("issue")
+
+    transition = commands.add_parser("transition", help="Preview or apply one direct workflow transition")
+    transition.add_argument("issue")
+    selector = transition.add_mutually_exclusive_group(required=True)
+    selector.add_argument("--id", dest="transition_id", help="Exact transition ID")
+    selector.add_argument("--name", help="Exact transition action name (ignores case)")
+    selector.add_argument("--to-status", help="Exact target status name (ignores case)")
+    transition.add_argument("--input", help="JSON file, or - for stdin; required for apply")
+    transition.add_argument("--preview", action="store_true", help="Read and validate, but do not write")
+
     create = commands.add_parser("create", help="Create one issue and verify the saved fields")
     create.add_argument("--input", required=True, help="JSON file, or - for stdin")
     create.add_argument("--preview", action="store_true", help="Read metadata and validate, but do not write")
@@ -65,9 +78,13 @@ def main(argv: list[str] | None = None) -> int:
         args.fields is not None, args.for_update, args.acceptance_criteria, args.acceptance_field,
     )):
         argument_parser.error("--comments-only cannot be combined with issue field options")
+    if args.command == "transition" and not args.preview and not args.input:
+        argument_parser.error("transition apply requires --input with expected from a preview")
     try:
         # Validate local input before loading credentials or making any API request.
-        spec = _load_input(args.input) if args.command in {"update", "create"} else None
+        spec = _load_input(args.input) if args.command in {"update", "create", "transition"} and args.input else None
+        if args.command == "transition" and spec is not None:
+            validate_transition_spec(spec)
         service = JiraIssues(JiraClient.from_env())
         result = _run(service, args, spec)
     except (ValueError, OSError, RuntimeError) as error:
@@ -99,6 +116,11 @@ def _run(service: JiraIssues, args: argparse.Namespace, spec: Any) -> dict[str, 
                            for_update=args.for_update, raw_adf=args.raw_adf)
     if args.command == "update":
         return service.update(args.issue, spec, preview=args.preview)
+    if args.command == "transitions":
+        return service.transitions(args.issue)
+    if args.command == "transition":
+        return service.transition(args.issue, spec, transition_id=args.transition_id,
+                                  name=args.name, to_status=args.to_status, preview=args.preview)
     if args.command == "create":
         return service.create(spec, preview=args.preview)
     if args.issue:

@@ -134,6 +134,17 @@ class JiraClientTests(unittest.TestCase):
         self.assertIsNone(result)
         self.assertEqual(self.https.call_count, 1)
 
+    def test_transition_post_accepts_204_without_replay(self):
+        self.https.return_value = response(b"", 204)
+
+        result = self.client.request_json("POST", ISSUE_PATH + "/transitions",
+                                          {"transition": {"id": "31"}})
+
+        self.assertIsNone(result)
+        self.assertEqual(self.https.call_count, 1)
+        self.assertEqual(self.https.call_args.args[1].get_method(), "POST")
+        self.assertEqual(self.https.call_args.args[1].data, b'{"transition": {"id": "31"}}')
+
     def test_empty_success_returns_none(self):
         self.https.return_value = response(b"")
 
@@ -541,6 +552,16 @@ class JiraClientTests(unittest.TestCase):
             self.client.request_json("PUT", ISSUE_PATH, {"fields": {}})
 
         self.assertEqual(raised.exception.status, 429)
+        self.assertEqual(self.https.call_count, 1)
+        self.sleep.assert_not_called()
+
+    def test_transition_post_is_not_retried_after_a_server_error(self):
+        self.https.return_value = response(b"Unavailable", 503)
+
+        with self.assertRaisesRegex(RequestError, "write result may be unknown"):
+            self.client.request_json("POST", ISSUE_PATH + "/transitions",
+                                     {"transition": {"id": "31"}})
+
         self.assertEqual(self.https.call_count, 1)
         self.sleep.assert_not_called()
 

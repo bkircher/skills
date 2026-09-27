@@ -136,13 +136,13 @@ actual object returned by the script. Do not invent or manually calculate hashes
 
 Supported input properties:
 
-| Property | Meaning |
-| --- | --- |
-| `fields` | Explicit Jira field values, including custom-field IDs |
-| `text` | New text for whole fields, using the content formats below |
+| Property   | Meaning                                                                 |
+| ---------- | ----------------------------------------------------------------------- |
+| `fields`   | Explicit Jira field values, including custom-field IDs                  |
+| `text`     | New text for whole fields, using the content formats below              |
 | `sections` | Replace selected rich-text section bodies without rewriting other nodes |
-| `labels` | Add/remove named labels without replacing unrelated labels |
-| `expected` | Source snapshot for every affected field |
+| `labels`   | Add/remove named labels without replacing unrelated labels              |
+| `expected` | Source snapshot for every affected field                                |
 
 Use `null` in `fields` only when the user requests clearing an optional field.
 An empty or missing property does not implicitly clear a field. Omitted fields
@@ -201,6 +201,64 @@ Snapshot checks are best effort, not atomic compare-and-swap. Another user can
 still edit after the check. Verification reports a mismatch rather than silently
 repeating the write. Freshness checks apply to affected fields, not unrelated changes.
 
+## Transitions
+
+```sh
+python3 scripts/jira.py transitions ABC-123
+python3 scripts/jira.py transition ABC-123 --id 31 --preview
+python3 scripts/jira.py transition ABC-123 --name 'Finish issue' --input transition.json --preview
+python3 scripts/jira.py transition ABC-123 --to-status Done --input transition.json
+```
+
+`transitions` lists actions available to the current user, each action's ID and
+name, its target status ID and name, and its screen fields. The screen metadata
+includes requirements, schema, operations, allowed values, and defaults when Jira
+supplies them. The result also has the current status and a status snapshot. No
+available actions can mean that the user lacks transition permission.
+
+`transition` needs exactly one selector: `--id`, `--name`, or `--to-status`. IDs
+must match exactly. Names must match exactly, except for case. Target status
+names are not status categories. A missing or ambiguous match stops the command.
+Only one direct action is supported; self-loop actions and automatic intermediate
+steps are not supported.
+
+Preview can run without `--input`. It returns the selected action, source and
+target status, required screen fields, changes, and a new `snapshot`. An apply
+needs `--input` and `expected` from a preview, even with no screen fields. Copy
+the actual snapshot; do not calculate or change its hashes. Preview can also
+check an `expected` snapshot. For example, after a preview that includes
+`resolution` in its snapshot, use this input with the actual snapshot object:
+
+```json
+{
+  "expected": {"site": "...", "issue": "ABC-123", "hashes": {"status": "...", "resolution": "..."}},
+  "fields": {"resolution": {"id": "10000"}}
+}
+```
+
+Use a resolution ID offered in the selected transition's `allowedValues`. Do
+not choose a resolution by default. If the screen does not offer `resolution`,
+Jira can still set it through its workflow. The result reports the resolution
+that the read-back shows. It does not verify a resolution that was not supplied.
+
+Transition input accepts only `expected`, `fields`, and `text`. `text` sets whole
+rich-text screen fields by the formats in [Content formats](#content-formats).
+The screen, not ordinary edit metadata, determines which fields can be set. A
+required field needs a supplied value, an existing non-empty value, or a Jira
+default. Unknown or unsupported field operations stop the write when they are
+visible. Comments, worklogs, section edits, label operations, and arbitrary
+REST payloads are not supported. Ordinary `update` still blocks `status` and
+`resolution`.
+
+An apply checks status and every supplied field against `expected`, checks that
+the action is available, sends one POST, then reads back the target status ID,
+resolution, and supplied fields. A conflict stops before POST. Snapshot checks
+are best effort, not atomic. Jira can reject a request because of a validator
+that its screen metadata does not describe. The command does not retry a write
+with an uncertain outcome. It returns `transitioned` and `verified: true` only
+when the status and supplied fields match. Read-back failure or a mismatch is
+`unverified`; it is not permission to retry.
+
 ## Create
 
 ```sh
@@ -246,15 +304,15 @@ Results are JSON on stdout. Local validation and read errors use stderr. Missing
 environment variables are reported by the client before any request. No traceback
 is needed for normal failures.
 
-| Status | Meaning | Exit code |
-| --- | --- | --- |
-| `preview` | No write sent | 0 |
-| `unchanged` | Current values already match; no write sent | 0 |
-| `updated`, `created` | Write accepted and saved fields verified | 0 |
-| `conflict` | Source changed; no write sent | 1 |
-| `rejected` | Jira rejected the write; no retry made | 1 |
-| `unknown` | Write outcome is uncertain; no retry made | 3 |
-| `unverified` | Write accepted, but read-back failed or differs | 3 |
+| Status                               | Meaning                                         | Exit code |
+| ------------------------------------ | ----------------------------------------------- | --------- |
+| `preview`                            | No write sent                                   | 0         |
+| `unchanged`                          | Current values already match; no write sent     | 0         |
+| `updated`, `created`, `transitioned` | Write accepted and saved fields verified        | 0         |
+| `conflict`                           | Source changed; no write sent                   | 1         |
+| `rejected`                           | Jira rejected the write; no retry made          | 1         |
+| `unknown`                            | Write outcome is uncertain; no retry made       | 3         |
+| `unverified`                         | Write accepted, but read-back failed or differs | 3         |
 
 Successful reads and searches exit with 0. Local validation failures exit with 2;
 read or connection failures exit with 1. Argument errors also exit with 2.
@@ -267,3 +325,4 @@ URL, the verification state, and any uncertainty to the user.
 The implementation uses the [Jira Cloud REST v3 issue endpoints](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/),
 including the project/type-specific create metadata endpoints. Search uses
 `POST /rest/api/3/search/jql`; comments use the issue comment endpoint.
+Transitions use `GET` and `POST /rest/api/3/issue/{key}/transitions`.

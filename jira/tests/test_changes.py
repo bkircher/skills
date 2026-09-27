@@ -6,7 +6,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from changes import build_changes, validate_fields, validate_spec, value_matches
+from changes import (build_changes, validate_fields, validate_spec, validate_transition_fields,
+                     validate_transition_spec, value_matches)
 
 
 class ChangeTests(unittest.TestCase):
@@ -180,6 +181,65 @@ class ChangeTests(unittest.TestCase):
         result = value_matches(expected, actual, "description")
 
         self.assertTrue(result)
+
+    def test_transition_accepts_no_screen_fields_and_rejects_other_input(self):
+        self.assertEqual(validate_transition_spec({}), [])
+        with self.assertRaisesRegex(ValueError, "Unknown input keys"):
+            validate_transition_spec({"update": {"comment": []}})
+
+    def test_transition_rejects_protected_fields_and_operations(self):
+        with self.assertRaisesRegex(ValueError, "not supported"):
+            validate_transition_spec({"fields": {"status": {"id": "2"}}})
+        with self.assertRaisesRegex(ValueError, "not supported"):
+            validate_transition_spec({"fields": {"worklog": {"timeSpent": "1h"}}})
+        with self.assertRaisesRegex(ValueError, "Unknown input keys"):
+            validate_transition_spec({"labels": {"add": ["new"]}})
+        with self.assertRaisesRegex(ValueError, "Unknown input keys"):
+            validate_transition_spec({"sections": []})
+
+    def test_resolution_requires_a_listed_numeric_id_only(self):
+        metadata = {"resolution": {"required": True, "operations": ["set"],
+                                   "schema": {"type": "resolution"},
+                                   "allowedValues": [{"id": "10000", "name": "Done"}]}}
+
+        validate_transition_fields({"resolution": {"id": "10000"}}, metadata, {"resolution": None})
+        with self.assertRaisesRegex(ValueError, "ID offered"):
+            validate_transition_fields({"resolution": {"name": "Done"}}, metadata, {"resolution": None})
+        with self.assertRaisesRegex(ValueError, "ID offered"):
+            validate_transition_fields({"resolution": {"id": "999"}}, metadata, {"resolution": None})
+        with self.assertRaisesRegex(ValueError, "ID offered"):
+            validate_transition_fields({"resolution": {"id": "10000", "name": "Done"}},
+                                       metadata, {"resolution": None})
+
+    def test_resolution_without_offered_choices_is_not_guessed(self):
+        metadata = {"resolution": {"required": False, "operations": ["set"],
+                                   "schema": {"type": "resolution"}}}
+
+        with self.assertRaisesRegex(ValueError, "ID offered"):
+            validate_transition_fields({"resolution": {"id": "10000"}}, metadata, {})
+
+    def test_transition_requires_missing_screen_value_but_accepts_existing_or_default(self):
+        metadata = {"customfield_1": {"required": True, "operations": ["set"],
+                                       "schema": {"type": "string"}}}
+
+        with self.assertRaisesRegex(ValueError, "Missing required transition field"):
+            validate_transition_fields({}, metadata, {"customfield_1": None})
+        with self.assertRaisesRegex(ValueError, "Missing required transition field"):
+            validate_transition_fields({}, metadata, {})
+        validate_transition_fields({}, metadata, {"customfield_1": "existing"})
+        validate_transition_fields({}, {"customfield_1": {**metadata["customfield_1"],
+                                                          "hasDefaultValue": True}}, {})
+
+    def test_transition_rejects_required_special_operation(self):
+        metadata = {"comment": {"required": True, "operations": ["add"],
+                                "schema": {"type": "array"}}}
+
+        with self.assertRaisesRegex(ValueError, "unsupported operation"):
+            validate_transition_fields({}, metadata, {})
+
+    def test_ordinary_update_cannot_set_resolution(self):
+        with self.assertRaisesRegex(ValueError, "not supported"):
+            validate_spec({"fields": {"resolution": {"id": "10000"}}}, creating=False)
 
     def test_adf_verification_does_not_ignore_different_content(self):
         expected = {"type": "doc", "version": 1, "content": [

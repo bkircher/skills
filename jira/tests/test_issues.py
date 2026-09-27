@@ -527,5 +527,380 @@ class JiraIssuesTests(unittest.TestCase):
         self.client.request_object.assert_not_called()
 
 
+def workflow_issue(status_name="Open", status_id="1", **fields):
+    return issue({"status": {"id": status_id, "name": status_name}, "resolution": None, **fields})
+
+
+def workflow(fields=None):
+    return {"transitions": [{"id": "31", "name": "Finish issue",
+                             "to": {"id": "3", "name": "Done", "statusCategory": {"name": "Done"}},
+                             "fields": {} if fields is None else fields}]}
+
+
+class TransitionTests(unittest.TestCase):
+    def setUp(self):
+        self.client = Mock(spec=JiraClient)
+        self.client.base_url = BASE_URL
+        self.client.request_json.return_value = None
+        self.service = JiraIssues(self.client)
+
+    def test_listing_shows_current_status_screen_and_status_snapshot(self):
+        screen = {"resolution": {"required": True, "operations": ["set"],
+                                 "schema": {"type": "resolution"}, "hasDefaultValue": False,
+                                 "allowedValues": [{"id": "10000", "name": "Done"}]}}
+        self.client.request_object.side_effect = [workflow_issue(), workflow(screen)]
+
+        result = self.service.transitions("ABC-123")
+
+        self.assertEqual(result["current_status"], {"id": "1", "name": "Open"})
+        self.assertEqual(result["transitions"], [{"id": "31", "name": "Finish issue",
+                                                  "to": {"id": "3", "name": "Done"}, "fields": screen}])
+        self.assertEqual(result["snapshot"]["issue"], "ABC-123")
+        self.assertEqual(list(result["snapshot"]["hashes"]), ["status"])
+        self.client.request_object.assert_any_call(
+            "GET", "/rest/api/3/issue/ABC-123/transitions?expand=transitions.fields")
+        self.client.request_json.assert_not_called()
+
+    def test_listing_uses_canonical_key_when_jira_moved_the_issue(self):
+        self.client.request_object.side_effect = [
+            {"key": "ABC-124", "fields": {"status": {"id": "1", "name": "Open"}}}, workflow()]
+
+        result = self.service.transitions("ABC-123")
+
+        self.assertEqual(result["key"], "ABC-124")
+        self.assertEqual(result["snapshot"]["issue"], "ABC-124")
+        self.client.request_object.assert_called_with(
+            "GET", "/rest/api/3/issue/ABC-124/transitions?expand=transitions.fields")
+
+    def test_no_permission_lists_no_available_transitions(self):
+        self.client.request_object.side_effect = [workflow_issue(), {"transitions": []}]
+
+        result = self.service.transitions("ABC-123")
+
+        self.assertEqual(result["transitions"], [])
+
+    def test_selector_names_are_exact_case_insensitive_and_do_not_use_category(self):
+        self.client.request_object.side_effect = [workflow(), workflow_issue()]
+
+        result = self.service.transition("ABC-123", name="finish ISSUE", preview=True)
+
+        self.assertEqual(result["transition"]["id"], "31")
+        self.assertEqual(result["before_status"], {"id": "1", "name": "Open"})
+        self.assertEqual(result["target_status"], {"id": "3", "name": "Done"})
+        self.client.request_json.assert_not_called()
+
+    def test_target_name_selects_exact_status_not_category(self):
+        self.client.request_object.side_effect = [workflow(), workflow_issue()]
+
+        result = self.service.transition("ABC-123", to_status="done", preview=True)
+
+        self.assertEqual(result["transition"]["id"], "31")
+
+    def test_missing_selector_does_not_write(self):
+        self.client.request_object.return_value = workflow()
+
+        with self.assertRaisesRegex(ValueError, "unavailable or ambiguous"):
+            self.service.transition("ABC-123", to_status="Closed", preview=True)
+
+        self.client.request_json.assert_not_called()
+
+    def test_status_category_is_not_a_selector(self):
+        self.client.request_object.return_value = {"transitions": [
+            {"id": "31", "name": "Close", "to": {"id": "3", "name": "Closed",
+                                                    "statusCategory": {"name": "Done"}}, "fields": {}}]}
+
+        with self.assertRaisesRegex(ValueError, "unavailable or ambiguous"):
+            self.service.transition("ABC-123", to_status="Done", preview=True)
+
+        self.client.request_json.assert_not_called()
+
+    def test_duplicate_target_names_are_ambiguous(self):
+        self.client.request_object.return_value = {"transitions": [
+            {"id": "31", "name": "Finish", "to": {"id": "3", "name": "Done"}, "fields": {}},
+            {"id": "32", "name": "Resolve", "to": {"id": "3", "name": "Done"}, "fields": {}}]}
+
+        with self.assertRaisesRegex(ValueError, "ambiguous"):
+            self.service.transition("ABC-123", to_status="Done", preview=True)
+
+        self.client.request_json.assert_not_called()
+
+    def test_duplicate_action_names_are_ambiguous(self):
+        self.client.request_object.return_value = {"transitions": [
+            {"id": "31", "name": "Finish", "to": {"id": "3", "name": "Done"}, "fields": {}},
+            {"id": "32", "name": "finish", "to": {"id": "4", "name": "Closed"}, "fields": {}}]}
+
+        with self.assertRaisesRegex(ValueError, "ambiguous"):
+            self.service.transition("ABC-123", name="FINISH", preview=True)
+
+        self.client.request_json.assert_not_called()
+
+    def test_duplicate_ids_are_ambiguous(self):
+        self.client.request_object.return_value = {"transitions": [
+            {"id": "31", "name": "Finish", "to": {"id": "3", "name": "Done"}, "fields": {}},
+            {"id": "31", "name": "Close", "to": {"id": "4", "name": "Closed"}, "fields": {}}]}
+
+        with self.assertRaisesRegex(ValueError, "ambiguous"):
+            self.service.transition("ABC-123", transition_id="31", preview=True)
+
+        self.client.request_json.assert_not_called()
+
+    def test_self_loop_is_rejected_before_post(self):
+        self.client.request_object.side_effect = [workflow(), workflow_issue("Done", "3")]
+
+        with self.assertRaisesRegex(ValueError, "Self-loop"):
+            self.service.transition("ABC-123", transition_id="31", preview=True)
+
+        self.client.request_json.assert_not_called()
+
+    def test_malformed_screen_metadata_is_not_used(self):
+        self.client.request_object.return_value = workflow({"resolution": {"required": True}})
+
+        with self.assertRaisesRegex(RuntimeError, "transition-screen metadata"):
+            self.service.transition("ABC-123", transition_id="31", preview=True)
+
+        self.client.request_json.assert_not_called()
+
+    def test_transition_requires_snapshot_before_requests(self):
+        with self.assertRaisesRegex(ValueError, "requires expected"):
+            self.service.transition("ABC-123", {}, transition_id="31")
+
+        self.client.request_object.assert_not_called()
+
+    def test_stale_status_returns_conflict_without_post(self):
+        self.client.request_object.side_effect = [workflow(), workflow_issue()]
+        preview = self.service.transition("ABC-123", transition_id="31", preview=True)
+        self.client.reset_mock()
+        self.client.request_object.side_effect = [workflow(), workflow_issue("In Progress", "2")]
+
+        result = self.service.transition("ABC-123", {"expected": preview["snapshot"]}, transition_id="31")
+
+        self.assertEqual(result["status"], "conflict")
+        self.client.request_json.assert_not_called()
+
+    def test_stale_field_returns_conflict_without_post(self):
+        screen = {"summary": {"required": False, "operations": ["set"], "schema": {"type": "string"}}}
+        self.client.request_object.side_effect = [workflow(screen), workflow_issue(summary="old")]
+        preview = self.service.transition("ABC-123", {"fields": {"summary": "new"}},
+                                          transition_id="31", preview=True)
+        self.client.reset_mock()
+        self.client.request_object.side_effect = [workflow(screen), workflow_issue(summary="other")]
+
+        result = self.service.transition("ABC-123", {"expected": preview["snapshot"],
+                                                     "fields": {"summary": "new"}}, transition_id="31")
+
+        self.assertEqual(result["status"], "conflict")
+        self.client.request_json.assert_not_called()
+
+    def test_source_issue_key_changed_returns_conflict(self):
+        self.client.request_object.side_effect = [workflow(), workflow_issue()]
+        preview = self.service.transition("ABC-123", transition_id="31", preview=True)
+        self.client.reset_mock()
+        self.client.request_object.side_effect = [workflow(),
+                                                  {"key": "ABC-124", "fields": {
+                                                      "status": {"id": "1", "name": "Open"}}}]
+
+        result = self.service.transition("ABC-123", {"expected": preview["snapshot"]}, transition_id="31")
+
+        self.assertEqual(result["status"], "conflict")
+        self.client.request_json.assert_not_called()
+
+    def test_unavailable_transition_after_status_change_is_conflict(self):
+        self.client.request_object.side_effect = [workflow(), workflow_issue()]
+        preview = self.service.transition("ABC-123", transition_id="31", preview=True)
+        self.client.reset_mock()
+        self.client.request_object.side_effect = [{"transitions": []}, workflow_issue("Done", "3")]
+
+        result = self.service.transition("ABC-123", {"expected": preview["snapshot"]}, transition_id="31")
+
+        self.assertEqual(result["status"], "conflict")
+        self.client.request_json.assert_not_called()
+
+    def test_missing_required_resolution_stops_before_post(self):
+        screen = {"resolution": {"required": True, "operations": ["set"],
+                                 "schema": {"type": "resolution"},
+                                 "allowedValues": [{"id": "10000", "name": "Done"}]}}
+        self.client.request_object.side_effect = [workflow(screen), workflow_issue()]
+
+        with self.assertRaisesRegex(ValueError, "Missing required transition field: resolution"):
+            self.service.transition("ABC-123", transition_id="31", preview=True)
+
+        self.client.request_json.assert_not_called()
+
+    def test_resolution_not_offered_on_screen_stops_before_post(self):
+        self.client.request_object.side_effect = [workflow(), workflow_issue()]
+
+        with self.assertRaisesRegex(ValueError, "ID offered"):
+            self.service.transition("ABC-123", {"fields": {"resolution": {"id": "10000"}}},
+                                    transition_id="31", preview=True)
+
+        self.client.request_json.assert_not_called()
+
+    def test_required_text_field_with_invalid_type_stops_before_post(self):
+        screen = {"customfield_1": {"required": True, "operations": ["set"],
+                                    "schema": {"type": "string"}}}
+        self.client.request_object.side_effect = [workflow(screen), workflow_issue(customfield_1=None)]
+
+        with self.assertRaisesRegex(ValueError, "requires a string"):
+            self.service.transition("ABC-123", {"fields": {"customfield_1": 7}},
+                                    transition_id="31", preview=True)
+
+        self.client.request_json.assert_not_called()
+
+    def test_resolution_preview_includes_supplied_field_and_snapshot(self):
+        screen = {"resolution": {"required": True, "operations": ["set"],
+                                 "schema": {"type": "resolution"},
+                                 "allowedValues": [{"id": "10000", "name": "Done"}]}}
+        self.client.request_object.side_effect = [workflow(screen), workflow_issue()]
+
+        result = self.service.transition("ABC-123", {"fields": {"resolution": {"id": "10000"}}},
+                                         transition_id="31", preview=True)
+
+        self.assertEqual(result["changes"]["resolution"], {"before": None, "after": {"id": "10000"}})
+        self.assertEqual(set(result["snapshot"]["hashes"]), {"status", "resolution"})
+        self.client.request_json.assert_not_called()
+
+    def test_text_screen_field_builds_adf_and_verifies(self):
+        screen = {"description": {"required": True, "operations": ["set"],
+                                  "schema": {"type": "string"}}}
+        self.client.request_object.side_effect = [workflow(screen), workflow_issue(description=None)]
+        spec = {"text": {"description": {"text": "Done"}}}
+        preview = self.service.transition("ABC-123", spec, transition_id="31", preview=True)
+        self.client.reset_mock()
+        document = {"type": "doc", "version": 1, "content": [
+            {"type": "paragraph", "content": [{"type": "text", "text": "Done"}]}]}
+        self.client.request_object.side_effect = [workflow(screen), workflow_issue(description=None),
+                                                  workflow_issue("Done", "3", description=document)]
+
+        result = self.service.transition("ABC-123", {**spec, "expected": preview["snapshot"]},
+                                         transition_id="31")
+
+        self.assertEqual(result["status"], "transitioned")
+        self.client.request_json.assert_called_once_with(
+            "POST", "/rest/api/3/issue/ABC-123/transitions",
+            {"transition": {"id": "31"}, "fields": {"description": document}})
+
+    def test_204_transition_without_fields_posts_once_and_reads_back_resolution(self):
+        self.client.request_object.side_effect = [workflow(), workflow_issue()]
+        preview = self.service.transition("ABC-123", transition_id="31", preview=True)
+        self.client.reset_mock()
+        self.client.request_object.side_effect = [workflow(), workflow_issue(),
+                                                  workflow_issue("Done", "3")]
+
+        result = self.service.transition("ABC-123", {"expected": preview["snapshot"]},
+                                         transition_id="31")
+
+        self.assertEqual(result["status"], "transitioned")
+        self.assertTrue(result["verified"])
+        self.assertIsNone(result["observed_resolution"])
+        self.client.request_json.assert_called_once_with(
+            "POST", "/rest/api/3/issue/ABC-123/transitions", {"transition": {"id": "31"}})
+        self.client.request_object.assert_called_with(
+            "GET", "/rest/api/3/issue/ABC-123?fields=status%2Cresolution")
+
+    def test_resolution_with_extra_jira_metadata_verifies_by_id(self):
+        screen = {"resolution": {"required": True, "operations": ["set"],
+                                 "schema": {"type": "resolution"},
+                                 "allowedValues": [{"id": "10000", "name": "Done"}]}}
+        self.client.request_object.side_effect = [workflow(screen), workflow_issue()]
+        preview = self.service.transition("ABC-123", {"fields": {"resolution": {"id": "10000"}}},
+                                          transition_id="31", preview=True)
+        self.client.reset_mock()
+        self.client.request_object.side_effect = [workflow(screen), workflow_issue(),
+                                                  workflow_issue("Done", "3", resolution={
+                                                      "id": "10000", "name": "Done"})]
+
+        result = self.service.transition("ABC-123", {"expected": preview["snapshot"],
+                                                     "fields": {"resolution": {"id": "10000"}}},
+                                         transition_id="31")
+
+        self.assertEqual(result["status"], "transitioned")
+        self.assertEqual(result["observed_resolution"], {"id": "10000", "name": "Done"})
+        self.client.request_json.assert_called_once_with(
+            "POST", "/rest/api/3/issue/ABC-123/transitions",
+            {"transition": {"id": "31"}, "fields": {"resolution": {"id": "10000"}}})
+
+    def test_readback_missing_resolution_is_unverified(self):
+        self.client.request_object.side_effect = [workflow(), workflow_issue()]
+        preview = self.service.transition("ABC-123", transition_id="31", preview=True)
+        self.client.reset_mock()
+        self.client.request_object.side_effect = [workflow(), workflow_issue(),
+                                                  issue({"status": {"id": "3", "name": "Done"}})]
+
+        result = self.service.transition("ABC-123", {"expected": preview["snapshot"]},
+                                         transition_id="31")
+
+        self.assertEqual(result["status"], "unverified")
+        self.assertEqual(result["mismatched_fields"], ["resolution"])
+
+    def test_readback_status_mismatch_is_unverified(self):
+        self.client.request_object.side_effect = [workflow(), workflow_issue()]
+        preview = self.service.transition("ABC-123", transition_id="31", preview=True)
+        self.client.reset_mock()
+        self.client.request_object.side_effect = [workflow(), workflow_issue(), workflow_issue()]
+
+        result = self.service.transition("ABC-123", {"expected": preview["snapshot"]},
+                                         transition_id="31")
+
+        self.assertEqual(result["status"], "unverified")
+        self.assertEqual(result["mismatched_fields"], ["status"])
+        self.client.request_json.assert_called_once()
+
+    def test_readback_field_mismatch_is_unverified(self):
+        screen = {"summary": {"required": False, "operations": ["set"], "schema": {"type": "string"}}}
+        self.client.request_object.side_effect = [workflow(screen), workflow_issue(summary="old")]
+        preview = self.service.transition("ABC-123", {"fields": {"summary": "new"}},
+                                          transition_id="31", preview=True)
+        self.client.reset_mock()
+        self.client.request_object.side_effect = [workflow(screen), workflow_issue(summary="old"),
+                                                  workflow_issue("Done", "3", summary="other")]
+
+        result = self.service.transition("ABC-123", {"expected": preview["snapshot"],
+                                                     "fields": {"summary": "new"}}, transition_id="31")
+
+        self.assertEqual(result["status"], "unverified")
+        self.assertEqual(result["mismatched_fields"], ["summary"])
+
+    def test_permission_rejection_is_not_retried(self):
+        self.client.request_object.side_effect = [workflow(), workflow_issue()]
+        preview = self.service.transition("ABC-123", transition_id="31", preview=True)
+        self.client.reset_mock()
+        self.client.request_object.side_effect = [workflow(), workflow_issue()]
+        self.client.request_json.side_effect = RequestError(403, BASE_URL, "Denied")
+
+        result = self.service.transition("ABC-123", {"expected": preview["snapshot"]},
+                                         transition_id="31")
+
+        self.assertEqual(result["status"], "rejected")
+        self.client.request_json.assert_called_once()
+        self.assertEqual(self.client.request_object.call_count, 2)
+
+    def test_timeout_has_unknown_outcome_without_retry(self):
+        self.client.request_object.side_effect = [workflow(), workflow_issue()]
+        preview = self.service.transition("ABC-123", transition_id="31", preview=True)
+        self.client.reset_mock()
+        self.client.request_object.side_effect = [workflow(), workflow_issue()]
+        self.client.request_json.side_effect = RuntimeError("Timed out")
+
+        result = self.service.transition("ABC-123", {"expected": preview["snapshot"]},
+                                         transition_id="31")
+
+        self.assertEqual(result["status"], "unknown")
+        self.client.request_json.assert_called_once()
+        self.assertEqual(self.client.request_object.call_count, 2)
+
+    def test_readback_failure_is_unverified_without_retry(self):
+        self.client.request_object.side_effect = [workflow(), workflow_issue()]
+        preview = self.service.transition("ABC-123", transition_id="31", preview=True)
+        self.client.reset_mock()
+        self.client.request_object.side_effect = [workflow(), workflow_issue(), RuntimeError("Read failed")]
+
+        result = self.service.transition("ABC-123", {"expected": preview["snapshot"]},
+                                         transition_id="31")
+
+        self.assertEqual(result["status"], "unverified")
+        self.assertTrue(result["write_accepted"])
+        self.client.request_json.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()

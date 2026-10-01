@@ -1,6 +1,6 @@
 ---
 name: git-commit-message
-description: Generate Git commit messages from staged changes when requested.
+description: Generate Git commit messages from staged changes.
 ---
 
 Create a commit message for the staged changes. If changes are staged, return

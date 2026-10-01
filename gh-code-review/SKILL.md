@@ -1,6 +1,6 @@
 ---
 name: gh-code-review
-description: Review GitHub pull requests using gh CLI and the GitHub API. Use when asked to review a PR, inspect PR changes, or choose approve/comment/request-changes.
+description: Review GitHub PR changes with gh CLI and the GitHub API; choose approve, comment, or request changes.
 ---
 
 You are conducting a fast, high-signal code review for a GitHub pull request.

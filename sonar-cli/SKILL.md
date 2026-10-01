@@ -1,6 +1,6 @@
 ---
 name: sonar-cli
-description: Use the SonarQube CLI to access and understand SonarQube analysis results. Use when the user asks about SonarQube issues.
+description: Read and explain SonarQube analysis results and issues with its CLI.
 ---
 
 ## Authentication

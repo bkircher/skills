@@ -1,6 +1,6 @@
 ---
 name: gh-run-failure
-description: Use to analyze failures in GitHub pipelines or jobs.
+description: Analyze failed GitHub pipelines or jobs.
 ---
 
 <general_guidelines>

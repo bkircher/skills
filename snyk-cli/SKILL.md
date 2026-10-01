@@ -1,7 +1,7 @@
 ---
 name: snyk-cli
 
-description: Scan and triage Snyk security findings in local repositories and container images. Use for Snyk vulnerability reviews, scan summaries, severity filtering, and remediation planning.
+description: Scan local repositories and container images with Snyk; review vulnerabilities, summarize results, filter by severity, and plan fixes.
 ---
 
 Use Snyk to scan the current repository. Default to read-only operations; do not ignore, delete, import, monitor, or modify Snyk data unless the user explicitly requests it.

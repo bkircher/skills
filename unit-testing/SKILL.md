@@ -1,6 +1,6 @@
 ---
 name: unit-testing
-description: Use when writing or updating unit tests (in any language).
+description: Write or update unit tests in any language.
 ---
 
 Create maintainable, readable, deterministic, and refactor-resilient unit tests.

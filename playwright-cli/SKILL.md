@@ -6,6 +6,10 @@ allowed-tools: Bash(playwright-cli:*) Bash(npx playwright:*) Bash(npx --no-insta
 
 # Browser Automation with playwright-cli
 
+> [!IMPORTANT]
+> Always pass `--no-sandbox` to Chrome when you start it.
+> This disables Chrome's own sandbox.
+
 ## Quick start
 
 ```bash

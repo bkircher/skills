@@ -3,101 +3,39 @@ name: git-commit-message
 description: Generate Git commit messages from staged changes.
 ---
 
-Create a commit message for the staged changes. If changes are staged, return
-only the commit message, with no code fence or commentary. Otherwise, report
-that nothing is staged.
+Read the full `git diff --cached`. If empty, report nothing is staged.
+Describe only staged changes; use conversation context for why, not extra
+changes. Return only the message, without code fences or commentary.
 
-## Inspect the staged changes
+## Checks
 
-List the staged files:
+Resolve `<script>` to this skill's `scripts/commit_message.py`.
+Run it from the target repository.
 
-<command>
-git diff --cached --name-only
-</command>
+- Before drafting, run `python3 <script> check_style`. For `"component"`,
+  use `<component>: <imperative summary>` for one clear component.
+  **Do not use Conventional Commits** (`<type>(<scope>): <description>`,
+  scope optional) unless it returns `"conventional"`.
+- Before returning, run `python3 <script> validate_format [file]` with the
+  draft in a file or on stdin. Fix errors and repeat until success; never
+  estimate line lengths.
 
-If this produces no output, report that nothing is staged and do not invent a
-message. Otherwise, read the complete staged diff:
+## Follow Chris Beams' seven rules
 
-<command>
-git diff --cached
-</command>
+1. Separate subject and body with a blank line.
+2. Limit the subject to 50 characters.
+3. Capitalize unprefixed subjects; preserve exact component names.
+4. Do not end the subject with a period.
+5. Use the imperative mood: `Fix`, not `Fixed` or `Fixes`.
+6. Limit body lines to 72 characters, including indentation.
+7. Explain what changed and why, not how.
 
-Use the conversation context to understand the rationale, but describe only the
-staged diff. Ignore unstaged and untracked changes.
+## Wording and body
 
-## Inspect the repository style
+Use plain engineering language. Prefer `infra`, `config`, `prod`, and `dev`
+when clear. Preserve exact names and repository terminology.
 
-Read recent non-merge commit subjects before drafting the message:
-
-<command>
-git log -30 --no-merges --format=%s
-</command>
-
-Match the established style. Use Conventional Commit syntax such as
-`feat(scope): ...` or `fix(scope): ...` only when it clearly dominates recent
-history. Isolated examples and component prefixes such as `subdir: ...` do not
-establish that convention.
-
-## Use concise, natural language
-
-- Prefer plain, slightly informal engineering language over formal wording.
-- When unambiguous, prefer `infra`, `config`, `prod`, and `dev` over
-  `infrastructure`, `configuration`, `production`, and `development`.
-- Preserve exact names from the staged diff and follow established repository
-  terminology when it differs.
-
-## Write the subject
-
-- Limit the subject to 50 characters.
-- Use the imperative mood: `fix`, not `fixed` or `fixes`.
-- Do not end the subject with a period.
-- When changes affect one clear component and history uses component prefixes,
-  use `<component>: <imperative summary>` and match the casing used in recent
-  history. Otherwise, capitalize the first word of an unprefixed subject.
-
-## Write the body
-
-Use this format unless the subject fully describes one small,
-self-explanatory change:
-
-```text
-<subject>
-
-Changes:
-- <change or rationale>
-- <change or rationale>
-```
-
-- Separate the body from the subject with a blank line.
-- Keep every body line within 72 characters, including indentation.
-- Explain what changed and why without repeating the subject or including
-  unnecessary implementation details.
-- Use only as many bullets as needed; do not invent items to reach a fixed
-  count.
-- Do not end a one-line bullet with a period.
-- Wrap bullets at word boundaries and indent continuation lines by two spaces.
-
-## Validate the message
-
-Before returning the message, run `scripts/validate_commit_message.py`. Resolve
-its path relative to this `SKILL.md` directory and provide the draft through
-standard input or in a file:
-
-```sh
-python3 /path/to/git-commit-message/scripts/validate_commit_message.py \
-  /path/to/draft-message
-```
-
-Revise and rerun the validator until it exits successfully. Never estimate line
-lengths manually.
-
-## Example
-
-```text
-git-commit-message: improve guidance
-
-Changes:
-- Match subject formatting to established repository history
-- Validate commit message formatting before returning the result
-- Avoid Conventional Commit syntax unless the project clearly uses it
-```
+Omit the body only for one small, self-explanatory change. Otherwise, use
+`Changes:` with only the necessary `- ` bullets. Do not repeat the subject or
+invent details. Omit periods on single-line bullets. Wrap at word boundaries
+and indent continuation lines by two spaces.

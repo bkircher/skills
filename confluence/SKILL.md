@@ -1,7 +1,7 @@
 ---
 name: confluence
 description: Search, read, draft, create, or update Confluence Cloud wiki pages. Use for titles, sections, spaces, and child pages; use jira for Jira issues.
-compatibility: Requires Python >=3.14, Confluence Cloud network access, and ATLASSIAN_URL, ATLASSIAN_EMAIL, and ATLASSIAN_API_TOKEN environment variables.
+compatibility: Requires Python >=3.15, Confluence Cloud network access, and ATLASSIAN_URL, ATLASSIAN_EMAIL, and ATLASSIAN_API_TOKEN environment variables.
 ---
 
 # Confluence

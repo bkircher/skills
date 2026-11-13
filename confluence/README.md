@@ -4,7 +4,7 @@ Confluence Cloud page search, reads, drafting support, creation, and guarded
 updates. This skill is separate from `jira`: pages and issues are different
 resources, though both use Atlassian credentials.
 
-Requires Python 3.14 or later and only standard-library modules. Configure:
+Requires Python 3.15 or later and only standard-library modules. Configure:
 
 - `ATLASSIAN_URL`: canonical HTTPS site origin, e.g. `https://example.atlassian.net`.
 - `ATLASSIAN_EMAIL`: account email.

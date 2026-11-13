@@ -7,7 +7,7 @@ supported.
 
 ## Requirements
 
-Use Python 3.14 or later. Only standard-library modules are required.
+Use Python 3.15 or later. Only standard-library modules are required.
 
 Set these environment variables:
 

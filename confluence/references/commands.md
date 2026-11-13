@@ -1,7 +1,7 @@
 # Confluence commands and input
 
 Run `python3 scripts/confluence.py --help` from the skill directory or use the
-absolute script path. Python 3.14+ standard library only. All commands require
+absolute script path. Python 3.15+ standard library only. All commands require
 `ATLASSIAN_URL`, `ATLASSIAN_EMAIL`, and `ATLASSIAN_API_TOKEN`. The site URL must
 be the canonical HTTPS origin, without `/wiki`, a query, or credentials.
 
